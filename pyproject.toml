@@ -1,0 +1,85 @@
+[project]
+name = "typed-store"
+version = "0.1.0"
+description = "Type-first data access SDK built on top of SQLAlchemy"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+authors = [
+  { name = "ticoag" },
+]
+keywords = ["sqlalchemy", "orm", "data-access", "typed", "repository"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+  "Topic :: Database",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+  "sqlalchemy>=2.0.36",
+  "greenlet>=3.1.1",
+]
+
+[dependency-groups]
+dev = [
+  "aiosqlite>=0.21.0",
+  "pytest>=8.3.4",
+  "pytest-asyncio>=0.25.3",
+  "ruff>=0.11.0",
+  "ty>=0.0.1a1",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+respect-gitignore = true
+extend-exclude = [
+  ".venv",
+  ".pytest_cache",
+  "__pycache__",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = [
+  "typed_store/**/*.py",
+  "typed_store/py.typed",
+  "README.md",
+  "LICENSE",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["typed_store"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/typed_store",
+  "/tests",
+  "/examples",
+  "/docs",
+  "/README.md",
+  "/LICENSE",
+  "/pyproject.toml",
+]
