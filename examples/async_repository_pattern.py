@@ -9,13 +9,7 @@ from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import (
-    AsyncTypedStore,
-    EngineConfig,
-    QuerySpec,
-    SessionProvider,
-    build_engine_bundle,
-)
+from typed_store import AsyncTypedStore
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -42,12 +36,10 @@ class UserRepository:
         return await self.store.insert(user, session=session, commit=commit)
 
     async def get_by_email(self, email: str, *, session=None) -> User | None:
-        spec = QuerySpec[User].empty().where(User.email == email)
-        return await self.store.find_one(User, spec, session=session)
+        return await self.store.find_one(User, User.email == email, session=session)
 
     async def list_admins(self) -> list[User]:
-        spec = QuerySpec[User].empty().where(User.role == "admin").order(User.id.asc())
-        return await self.store.find_many(User, spec)
+        return await self.store.find_many(User, User.role == "admin", order=User.id.asc())
 
 
 class UserService:
@@ -68,21 +60,17 @@ class UserService:
 
 
 async def main() -> None:
-    bundle = build_engine_bundle(
-        async_config=EngineConfig(url="sqlite+aiosqlite:///async_repository_example.sqlite3")
-    )
-    assert bundle.async_engine is not None
-    async with bundle.async_engine.begin() as conn:
+    store = AsyncTypedStore.from_url("sqlite+aiosqlite:///async_repository_example.sqlite3")
+    assert store.engine is not None
+    async with store.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    provider = SessionProvider(async_session_factory=bundle.async_session_factory)
-    store = AsyncTypedStore[User](provider)
     service = UserService(store)
 
     await service.register_admin("alice@example.com")
     admins = await service.repo.list_admins()
     print([user.email for user in admins])
-    await bundle.async_engine.dispose()
+    await store.engine.dispose()
 
 
 asyncio.run(main())

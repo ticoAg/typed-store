@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import ClassVar, Self, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from typed_store.async_store import AsyncTypedStore
 from typed_store.errors import InvalidStoreBindingError, MissingGlobalStoreError
-from typed_store.query_spec import QuerySpec
+from typed_store.query_spec import FilterClause, OrderClause, QuerySpec
 from typed_store.results import Page
 from typed_store.store import TypedStore
 from typed_store.sync import SyncTypedStore
@@ -100,6 +101,34 @@ class TypedStoreModel:
         return self
 
     @classmethod
+    def insert_many(
+        cls: type[Self],
+        entities: Sequence[Self],
+        *,
+        store: SyncStoreBinding | None = None,
+        session: Session | None = None,
+        commit: bool = True,
+    ) -> list[Self]:
+        """Insert multiple model instances using the sync facade."""
+        active_store = _resolve_sync_store(cast(SyncStoreBinding, store or cls.store()))
+        return cast(list[Self], active_store.insert_many(entities, session=session, commit=commit))
+
+    @classmethod
+    async def ainsert_many(
+        cls: type[Self],
+        entities: Sequence[Self],
+        *,
+        store: AsyncStoreBinding | None = None,
+        session: AsyncSession | None = None,
+        commit: bool = True,
+    ) -> list[Self]:
+        """Insert multiple model instances using the async facade."""
+        active_store = _resolve_async_store(cast(AsyncStoreBinding, store or cls.store()))
+        return cast(
+            list[Self], await active_store.insert_many(entities, session=session, commit=commit)
+        )
+
+    @classmethod
     def get(
         cls: type[Self],
         ident: object,
@@ -126,97 +155,171 @@ class TypedStoreModel:
     @classmethod
     def find_one(
         cls: type[Self],
+        *filters: FilterClause,
         spec: QuerySpec[Self] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
         store: SyncStoreBinding | None = None,
         session: Session | None = None,
     ) -> Self | None:
         """Find a single model instance using the sync facade."""
         active_store = _resolve_sync_store(cast(SyncStoreBinding, store or cls.store()))
-        return cast(Self | None, active_store.find_one(cls, spec, session=session))
+        return cast(
+            Self | None,
+            active_store.find_one(cls, *filters, spec=spec, order=order, session=session),
+        )
 
     @classmethod
     async def afind_one(
         cls: type[Self],
+        *filters: FilterClause,
         spec: QuerySpec[Self] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
         store: AsyncStoreBinding | None = None,
         session: AsyncSession | None = None,
     ) -> Self | None:
         """Find a single model instance using the async facade."""
         active_store = _resolve_async_store(cast(AsyncStoreBinding, store or cls.store()))
-        return cast(Self | None, await active_store.find_one(cls, spec, session=session))
+        return cast(
+            Self | None,
+            await active_store.find_one(cls, *filters, spec=spec, order=order, session=session),
+        )
 
     @classmethod
     def find_many(
         cls: type[Self],
+        *filters: FilterClause,
         spec: QuerySpec[Self] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         store: SyncStoreBinding | None = None,
         session: Session | None = None,
     ) -> list[Self]:
         """Find many model instances using the sync facade."""
         active_store = _resolve_sync_store(cast(SyncStoreBinding, store or cls.store()))
-        return cast(list[Self], active_store.find_many(cls, spec, session=session))
+        return cast(
+            list[Self],
+            active_store.find_many(
+                cls, *filters, spec=spec, order=order, limit=limit, offset=offset, session=session
+            ),
+        )
 
     @classmethod
     async def afind_many(
         cls: type[Self],
+        *filters: FilterClause,
         spec: QuerySpec[Self] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         store: AsyncStoreBinding | None = None,
         session: AsyncSession | None = None,
     ) -> list[Self]:
         """Find many model instances using the async facade."""
         active_store = _resolve_async_store(cast(AsyncStoreBinding, store or cls.store()))
-        return cast(list[Self], await active_store.find_many(cls, spec, session=session))
+        return cast(
+            list[Self],
+            await active_store.find_many(
+                cls, *filters, spec=spec, order=order, limit=limit, offset=offset, session=session
+            ),
+        )
 
     @classmethod
     def paginate(
         cls: type[Self],
+        *filters: FilterClause,
         spec: QuerySpec[Self] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         store: SyncStoreBinding | None = None,
         session: Session | None = None,
     ) -> Page[Self]:
         """Paginate model instances using the sync facade."""
         active_store = _resolve_sync_store(cast(SyncStoreBinding, store or cls.store()))
-        return cast(Page[Self], active_store.paginate(cls, spec, session=session))
+        return cast(
+            Page[Self],
+            active_store.paginate(
+                cls, *filters, spec=spec, order=order, limit=limit, offset=offset, session=session
+            ),
+        )
 
     @classmethod
     async def apaginate(
         cls: type[Self],
+        *filters: FilterClause,
         spec: QuerySpec[Self] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         store: AsyncStoreBinding | None = None,
         session: AsyncSession | None = None,
     ) -> Page[Self]:
         """Paginate model instances using the async facade."""
         active_store = _resolve_async_store(cast(AsyncStoreBinding, store or cls.store()))
-        return cast(Page[Self], await active_store.paginate(cls, spec, session=session))
+        return cast(
+            Page[Self],
+            await active_store.paginate(
+                cls, *filters, spec=spec, order=order, limit=limit, offset=offset, session=session
+            ),
+        )
+
+    @classmethod
+    def update_fields(
+        cls: type[Self],
+        values: Mapping[str, object],
+        *filters: FilterClause,
+        spec: QuerySpec[Self] | None = None,
+        store: SyncStoreBinding | None = None,
+        session: Session | None = None,
+        commit: bool = True,
+    ) -> int:
+        """Update matching model instances using the sync facade."""
+        active_store = _resolve_sync_store(cast(SyncStoreBinding, store or cls.store()))
+        return active_store.update_fields(
+            cls, values, *filters, spec=spec, session=session, commit=commit
+        )
+
+    @classmethod
+    async def aupdate_fields(
+        cls: type[Self],
+        values: Mapping[str, object],
+        *filters: FilterClause,
+        spec: QuerySpec[Self] | None = None,
+        store: AsyncStoreBinding | None = None,
+        session: AsyncSession | None = None,
+        commit: bool = True,
+    ) -> int:
+        """Update matching model instances using the async facade."""
+        active_store = _resolve_async_store(cast(AsyncStoreBinding, store or cls.store()))
+        return await active_store.update_fields(
+            cls, values, *filters, spec=spec, session=session, commit=commit
+        )
 
     @classmethod
     def delete_where(
         cls: type[Self],
+        *filters: FilterClause,
         spec: QuerySpec[Self] | None = None,
-        *,
         store: SyncStoreBinding | None = None,
         session: Session | None = None,
         commit: bool = True,
     ) -> int:
         """Delete model instances matching the provided spec."""
         active_store = _resolve_sync_store(cast(SyncStoreBinding, store or cls.store()))
-        return active_store.delete_where(cls, spec, session=session, commit=commit)
+        return active_store.delete_where(cls, *filters, spec=spec, session=session, commit=commit)
 
     @classmethod
     async def adelete_where(
         cls: type[Self],
+        *filters: FilterClause,
         spec: QuerySpec[Self] | None = None,
-        *,
         store: AsyncStoreBinding | None = None,
         session: AsyncSession | None = None,
         commit: bool = True,
     ) -> int:
         """Delete model instances matching the provided spec."""
         active_store = _resolve_async_store(cast(AsyncStoreBinding, store or cls.store()))
-        return await active_store.delete_where(cls, spec, session=session, commit=commit)
+        return await active_store.delete_where(
+            cls, *filters, spec=spec, session=session, commit=commit
+        )

@@ -3,23 +3,57 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.sql.expression import Executable
 
+from typed_store.engine import EngineBundle, EngineConfig, build_engine_bundle
 from typed_store.errors import ProjectionPaginationError
-from typed_store.query_spec import QuerySpec
+from typed_store.query_spec import FilterClause, OrderClause, QuerySpec
 from typed_store.results import Page
 from typed_store.session import SessionProvider
 from typed_store.uow import AsyncUnitOfWork
+
+if TYPE_CHECKING:
+    from typed_store.model_store import AsyncModelStore
 
 
 class AsyncTypedStore[TModel]:
     """An asynchronous, type-oriented data access facade built on top of SQLAlchemy."""
 
+    _bundle: EngineBundle | None
+
     def __init__(self, provider: SessionProvider):
         self.provider = provider
+        self._bundle = None
+
+    @classmethod
+    def from_url(
+        cls, url: str, *, echo: bool = False, **engine_options: Any
+    ) -> AsyncTypedStore[Any]:
+        """Create an AsyncTypedStore from a database URL in one step."""
+        bundle = build_engine_bundle(
+            async_config=EngineConfig(url=url, echo=echo, engine_options=engine_options),
+        )
+        provider = SessionProvider(async_session_factory=bundle.async_session_factory)
+        instance: AsyncTypedStore[Any] = cls(provider)
+        instance._bundle = bundle
+        return instance
+
+    @property
+    def engine(self) -> AsyncEngine | None:
+        """Return the underlying async engine, if available."""
+        if self._bundle is not None:
+            return self._bundle.async_engine
+        return None
+
+    def of[M](self, model: type[M]) -> AsyncModelStore[M]:
+        """Return a model-bound view that eliminates repeated model arguments."""
+        from typed_store.model_store import AsyncModelStore
+
+        return AsyncModelStore(self, model)
 
     def unit_of_work(self, *, auto_commit: bool = True) -> AsyncUnitOfWork:
         """Create an asynchronous unit of work."""
@@ -84,12 +118,15 @@ class AsyncTypedStore[TModel]:
     async def find_one(
         self,
         model: type[TModel],
+        *filters: FilterClause,
         spec: QuerySpec[TModel] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
         session: AsyncSession | None = None,
     ) -> TModel | None:
         """Fetch the first matching entity using an async session."""
-        active_spec = spec or QuerySpec[TModel].empty()
+        from typed_store.query_spec import _merge_spec
+
+        active_spec = _merge_spec(*filters, spec=spec, order=order)
         stmt = active_spec.paginate(limit=1, offset=0).build_select(model)
         if session is not None:
             await session.flush()
@@ -103,12 +140,17 @@ class AsyncTypedStore[TModel]:
     async def find_many(
         self,
         model: type[TModel],
+        *filters: FilterClause,
         spec: QuerySpec[TModel] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         session: AsyncSession | None = None,
     ) -> list[TModel]:
         """Fetch all matching entities using an async session."""
-        active_spec = spec or QuerySpec[TModel].empty()
+        from typed_store.query_spec import _merge_spec
+
+        active_spec = _merge_spec(*filters, spec=spec, order=order, limit=limit, offset=offset)
         stmt = active_spec.build_select(model)
         if session is not None:
             await session.flush()
@@ -153,12 +195,17 @@ class AsyncTypedStore[TModel]:
     async def paginate(
         self,
         model: type[TModel],
+        *filters: FilterClause,
         spec: QuerySpec[TModel] | None = None,
-        *,
+        order: OrderClause | tuple[OrderClause, ...] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         session: AsyncSession | None = None,
     ) -> Page[TModel]:
         """Return a page of entities and the matching total count."""
-        active_spec = spec or QuerySpec[TModel].empty()
+        from typed_store.query_spec import _merge_spec
+
+        active_spec = _merge_spec(*filters, spec=spec, order=order, limit=limit, offset=offset)
         if active_spec.columns is not None:
             raise ProjectionPaginationError(
                 "paginate() only supports entity queries; use select_rows() for column projections."
@@ -184,18 +231,20 @@ class AsyncTypedStore[TModel]:
         self,
         model: type[TModel],
         values: Mapping[str, object],
+        *filters: FilterClause,
         spec: QuerySpec[TModel] | None = None,
-        *,
         session: AsyncSession | None = None,
         commit: bool = True,
     ) -> int:
         """Update matching entities by mutating loaded ORM objects."""
-        active_spec = spec or QuerySpec[TModel].empty()
+        from typed_store.query_spec import _merge_spec
+
+        active_spec = _merge_spec(*filters, spec=spec)
         if active_spec.columns is not None:
             raise ValueError("update_fields() does not support column projections.")
 
         if session is not None:
-            items = await self.find_many(model, active_spec, session=session)
+            items = await self.find_many(model, spec=active_spec, session=session)
             for item in items:
                 for key, value in values.items():
                     setattr(item, key, value)
@@ -204,7 +253,7 @@ class AsyncTypedStore[TModel]:
             return len(items)
 
         async with self.provider.get_async_session() as managed_session:
-            items = await self.find_many(model, active_spec, session=managed_session)
+            items = await self.find_many(model, spec=active_spec, session=managed_session)
             for item in items:
                 for key, value in values.items():
                     setattr(item, key, value)
@@ -215,15 +264,17 @@ class AsyncTypedStore[TModel]:
     async def delete_where(
         self,
         model: type[TModel],
+        *filters: FilterClause,
         spec: QuerySpec[TModel] | None = None,
-        *,
         session: AsyncSession | None = None,
         commit: bool = True,
     ) -> int:
         """Delete matching entities by loading and removing ORM objects."""
-        active_spec = spec or QuerySpec[TModel].empty()
+        from typed_store.query_spec import _merge_spec
+
+        active_spec = _merge_spec(*filters, spec=spec)
         if session is not None:
-            items = await self.find_many(model, active_spec, session=session)
+            items = await self.find_many(model, spec=active_spec, session=session)
             for item in items:
                 await session.delete(item)
             if commit:
@@ -231,17 +282,9 @@ class AsyncTypedStore[TModel]:
             return len(items)
 
         async with self.provider.get_async_session() as managed_session:
-            items = await self.find_many(model, active_spec, session=managed_session)
+            items = await self.find_many(model, spec=active_spec, session=managed_session)
             for item in items:
                 await managed_session.delete(item)
             if commit:
                 await managed_session.commit()
             return len(items)
-
-    @staticmethod
-    def equals_spec(model: type[TModel], **kwargs: object) -> QuerySpec[TModel]:
-        """Build a query spec from exact-match keyword arguments."""
-        spec = QuerySpec[TModel].empty()
-        for key, value in kwargs.items():
-            spec = spec.where(getattr(model, key) == value)
-        return spec

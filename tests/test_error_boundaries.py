@@ -60,15 +60,15 @@ async def test_model_mixin_rejects_invalid_async_store_binding():
 
 
 def test_sync_paginate_rejects_projection(store):
-    spec = QuerySpec[Widget].empty().select_columns(Widget.id).paginate(limit=10, offset=0)
+    spec = QuerySpec[Widget]().select_columns(Widget.id).paginate(limit=10, offset=0)
 
     with pytest.raises(ProjectionPaginationError):
-        store.sync.paginate(Widget, spec)
+        store.sync.paginate(Widget, spec=spec)
 
 
 @pytest.mark.asyncio
 async def test_async_paginate_rejects_projection(store):
-    spec = QuerySpec[Widget].empty().select_columns(Widget.id).paginate(limit=10, offset=0)
+    spec = QuerySpec[Widget]().select_columns(Widget.id).paginate(limit=10, offset=0)
 
     with pytest.raises(ProjectionPaginationError):
-        await store.async_.paginate(Widget, spec)
+        await store.async_.paginate(Widget, spec=spec)

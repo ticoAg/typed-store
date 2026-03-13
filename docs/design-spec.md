@@ -109,6 +109,7 @@ flowchart TB
   engine.py
   errors.py
   model.py
+  model_store.py
   query_spec.py
   results.py
   session.py
@@ -120,9 +121,10 @@ flowchart TB
 说明：
 
 - `sync.py` 与 `async_store.py` 是正式 facade
-- `store.py` 提供组合入口 `TypedStore`
+- `store.py` 提供组合入口 `TypedStore`，也可直接当 sync store 用
+- `model_store.py` 提供 `SyncModelStore` / `AsyncModelStore` model-bound 子视图
 - `model.py` 提供可选 mixin，不作为唯一数据访问入口
-- `results.py` 用于消除“一个 API 多种返回结构”的问题
+- `results.py` 用于消除”一个 API 多种返回结构”的问题
 
 ## Core Concepts
 
@@ -164,17 +166,27 @@ flowchart TB
 当前 API 已拆分为明确入口：
 
 - `get(model, id)` -> `T | None`
-- `find_one(model, spec)` -> `T | None`
-- `find_many(model, spec)` -> `list[T]`
-- `paginate(model, spec)` -> `Page[T]`
-- `select_rows(...)` -> `list[RowLike]`
-- `select_scalars(...)` -> `list[TScalar]`
+- `find_one(model, *filters, ...)` -> `T | None`
+- `find_many(model, *filters, ...)` -> `list[T]`
+- `paginate(model, *filters, ...)` -> `Page[T]`
+- `select_rows(model, spec)` -> `list[RowLike]`
+- `select_scalars(statement)` -> `list[TScalar]`
+
+查询方法均支持内联参数（`*filters`, `order`, `limit`, `offset`），也可通过 `spec=QuerySpec(...)` 传入复杂查询。
+
+### SyncModelStore / AsyncModelStore
+
+Model-bound 子视图，通过 `store.of(Model)` 创建：
+
+- 省去每次调用都传 model 参数
+- 完全对称的 sync / async 方法
+- 覆盖 insert、insert_many、get、find_one、find_many、paginate、update_fields、delete_where
 
 ### TypedStoreModel
 
 定位为可选语法糖：
 
-- 保留简单 `insert()` / `ainsert()` 风格
+- 完整的 sync / async 方法对：`insert` / `ainsert`、`insert_many` / `ainsert_many`、`get` / `aget`、`find_one` / `afind_one`、`find_many` / `afind_many`、`paginate` / `apaginate`、`update_fields` / `aupdate_fields`、`delete_where` / `adelete_where`
 - 不承载复杂查询编排
 - 不让模型自行掌握事务策略
 - 通过默认 store 或显式 store 解析 sync / async facade
@@ -188,15 +200,16 @@ flowchart TB
 - sync / async unit of work
 - `QuerySpec`
 - `Page`
-- `SyncTypedStore`
-- `AsyncTypedStore`
-- `TypedStore` 组合入口
-- `TypedStoreModel`
+- `SyncTypedStore` — 一行初始化 `from_url`，内联 filter 参数，`of()` model-bound 子视图
+- `AsyncTypedStore` — 与 sync facade 完全对称
+- `TypedStore` 组合入口 — 可直接当 sync store 用，暴露 sync 委托方法
+- `SyncModelStore` / `AsyncModelStore` — model-bound 子视图
+- `TypedStoreModel` — 完整 sync / async 方法对（含 insert_many / update_fields）
 - 同步与异步主路径测试
 - 事务回滚测试
 - 外部 session 复用测试
 - loader options 测试
-- examples
+- examples（sync、async、repository、model store view、model mixin）
 - async repository / service example
 - 错误边界测试
 - examples smoke tests
@@ -237,6 +250,8 @@ uv build
 - `examples/async_basic.py`
 - `examples/repository_pattern.py`
 - `examples/async_repository_pattern.py`
+- `examples/model_store_view.py`
+- `examples/model_mixin.py`
 - `tests/test_error_boundaries.py`
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`

@@ -7,13 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import (
-    EngineConfig,
-    QuerySpec,
-    SessionProvider,
-    SyncTypedStore,
-    build_engine_bundle,
-)
+from typed_store import SyncTypedStore
 
 
 class Base(DeclarativeBase):
@@ -40,12 +34,10 @@ class UserRepository:
         return self.store.insert(user, session=session, commit=commit)
 
     def get_by_email(self, email: str, *, session=None) -> User | None:
-        spec = QuerySpec[User].empty().where(User.email == email)
-        return self.store.find_one(User, spec, session=session)
+        return self.store.find_one(User, User.email == email, session=session)
 
     def list_admins(self) -> list[User]:
-        spec = QuerySpec[User].empty().where(User.role == "admin").order(User.id.asc())
-        return self.store.find_many(User, spec)
+        return self.store.find_many(User, User.role == "admin", order=User.id.asc())
 
 
 class UserService:
@@ -65,11 +57,9 @@ class UserService:
             return user
 
 
-bundle = build_engine_bundle(sync_config=EngineConfig(url="sqlite:///repository_example.sqlite3"))
-assert bundle.sync_engine is not None
-Base.metadata.create_all(bundle.sync_engine)
-provider = SessionProvider(sync_session_factory=bundle.sync_session_factory)
-store = SyncTypedStore(provider)
+store = SyncTypedStore.from_url("sqlite:///repository_example.sqlite3")
+assert store.engine is not None
+Base.metadata.create_all(store.engine)
 service = UserService(store)
 
 service.register_admin("alice@example.com")

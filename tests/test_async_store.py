@@ -18,21 +18,14 @@ async def test_async_insert_find_and_paginate(store):
         ]
     )
 
-    spec = (
-        QuerySpec[Widget]
-        .empty()
-        .where(Widget.category == "a")
-        .order(Widget.id.asc())
-        .paginate(limit=2, offset=0)
+    page = await store.async_.paginate(
+        Widget, Widget.category == "a", order=Widget.id.asc(), limit=2, offset=0
     )
-    page = await store.async_.paginate(Widget, spec)
 
     assert page.total == 2
     assert [item.name for item in page.items] == ["alpha", "gamma"]
 
-    found = await store.async_.find_one(
-        Widget, QuerySpec[Widget].empty().where(Widget.name == "beta")
-    )
+    found = await store.async_.find_one(Widget, Widget.name == "beta")
     assert found is not None
     assert found.category == "b"
 
@@ -45,24 +38,22 @@ async def test_async_select_rows_update_delete_and_mixin(store):
 
     rows = await store.async_.select_rows(
         Widget,
-        QuerySpec[Widget].empty().select_columns(func.count()).where(Widget.category == "a"),
+        QuerySpec[Widget]().select_columns(func.count()).where(Widget.category == "a"),
     )
     assert rows[0][0] == 2
 
     updated = await store.async_.update_fields(
         Widget,
         {"category": "changed"},
-        QuerySpec[Widget].empty().where(Widget.name == "alpha"),
+        Widget.name == "alpha",
     )
     assert updated == 1
 
-    deleted = await store.async_.delete_where(
-        Widget, QuerySpec[Widget].empty().where(Widget.category == "changed")
-    )
+    deleted = await store.async_.delete_where(Widget, Widget.category == "changed")
     assert deleted == 1
 
     await Widget(name="mixin-async", category="ma").ainsert()
-    items = await Widget.afind_many(QuerySpec[Widget].empty().where(Widget.category == "ma"))
+    items = await Widget.afind_many(Widget.category == "ma")
     assert len(items) == 1
 
 
@@ -72,9 +63,7 @@ async def test_async_unit_of_work_commit_and_rollback(store):
         assert uow.session is not None
         uow.session.add(Widget(name="inside-async-uow", category="uow"))
 
-    rows = await store.async_.find_many(
-        Widget, QuerySpec[Widget].empty().where(Widget.category == "uow")
-    )
+    rows = await store.async_.find_many(Widget, Widget.category == "uow")
     assert len(rows) == 1
 
     with pytest.raises(RuntimeError):
@@ -82,12 +71,7 @@ async def test_async_unit_of_work_commit_and_rollback(store):
             uow.session.add(Widget(name="rolled-back", category="rollback"))
             raise RuntimeError("boom")
 
-    assert (
-        await store.async_.find_many(
-            Widget, QuerySpec[Widget].empty().where(Widget.category == "rollback")
-        )
-        == []
-    )
+    assert await store.async_.find_many(Widget, Widget.category == "rollback") == []
 
 
 @pytest.mark.asyncio
@@ -99,15 +83,13 @@ async def test_async_external_session_reuse_and_loader_options(store, provider):
         await store.async_.update_fields(
             Widget,
             {"category": "persisted"},
-            QuerySpec[Widget].empty().where(Widget.name == "external"),
+            Widget.name == "external",
             session=session,
             commit=False,
         )
         await session.commit()
 
-    found = await store.async_.find_one(
-        Widget, QuerySpec[Widget].empty().where(Widget.name == "external")
-    )
+    found = await store.async_.find_one(Widget, Widget.name == "external")
     assert found is not None
     assert found.category == "persisted"
 
@@ -117,10 +99,8 @@ async def test_async_external_session_reuse_and_loader_options(store, provider):
         [Member(team_id=team.id, name="alice"), Member(team_id=team.id, name="bob")]
     )
 
-    spec = (
-        QuerySpec[Team].empty().with_options(selectinload(Team.members)).where(Team.id == team.id)
-    )
-    loaded = await store.async_.find_one(Team, spec)
+    spec = QuerySpec[Team]().with_options(selectinload(Team.members)).where(Team.id == team.id)
+    loaded = await store.async_.find_one(Team, spec=spec)
 
     assert loaded is not None
     assert [member.name for member in loaded.members] == ["alice", "bob"]

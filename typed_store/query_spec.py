@@ -27,7 +27,10 @@ class QuerySpec[TModel]:
 
     @classmethod
     def empty(cls) -> QuerySpec[TModel]:
-        """Return an empty query specification."""
+        """Return an empty query specification.
+
+        .. deprecated:: Prefer ``QuerySpec()`` directly.
+        """
         return cls()
 
     def where(self, *filters: FilterClause) -> QuerySpec[TModel]:
@@ -75,3 +78,26 @@ class QuerySpec[TModel]:
         if self.filters:
             stmt = stmt.where(*self.filters)
         return stmt
+
+
+def _merge_spec[TModel](
+    *filters: FilterClause,
+    spec: QuerySpec[TModel] | None = None,
+    order: OrderClause | tuple[OrderClause, ...] | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> QuerySpec[TModel]:
+    """Merge inline filter/order/limit/offset into a QuerySpec."""
+    result = spec or QuerySpec[TModel]()
+    if filters:
+        result = result.where(*filters)
+    if order is not None:
+        if isinstance(order, tuple):  # noqa: SIM108
+            result = result.order(*order)  # ty: ignore[invalid-argument-type]
+        else:
+            result = result.order(order)
+    if limit is not None:
+        result = replace(result, limit=limit)
+    if offset is not None:
+        result = replace(result, offset=offset)
+    return result

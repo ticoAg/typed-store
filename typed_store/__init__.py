@@ -21,6 +21,7 @@ from typed_store.model import (
     get_default_store,
     set_default_store,
 )
+from typed_store.model_store import AsyncModelStore, SyncModelStore
 from typed_store.query_spec import QuerySpec
 from typed_store.results import Page
 from typed_store.session import SessionProvider
@@ -29,6 +30,7 @@ from typed_store.sync import SyncTypedStore
 from typed_store.uow import AsyncUnitOfWork, UnitOfWork
 
 __all__ = [
+    "AsyncModelStore",
     "AsyncTypedStore",
     "AsyncUnitOfWork",
     "EngineBundle",
@@ -39,6 +41,7 @@ __all__ = [
     "Page",
     "QuerySpec",
     "SessionProvider",
+    "SyncModelStore",
     "SyncTypedStore",
     "TypedStore",
     "TypedStoreConfigurationError",

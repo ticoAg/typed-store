@@ -40,3 +40,17 @@ def test_repository_pattern_example_smoke(tmp_path: Path) -> None:
 def test_async_repository_pattern_example_smoke(tmp_path: Path) -> None:
     output = run_example("async_repository_pattern.py", tmp_path)
     assert "alice@example.com" in output
+
+
+def test_model_store_view_example_smoke(tmp_path: Path) -> None:
+    output = run_example("model_store_view.py", tmp_path)
+    assert "alice" in output
+    assert "members:" in output
+
+
+def test_model_mixin_example_smoke(tmp_path: Path) -> None:
+    output = run_example("model_mixin.py", tmp_path)
+    assert "admins:" in output
+    assert "find_one:" in output
+    assert "updated" in output
+    assert "deleted" in output
