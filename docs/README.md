@@ -9,6 +9,7 @@
 ## Layout
 
 - `architecture/`：长期有效的工作区架构、边界、设计原则
+- `architecture/api-surface.md`：`TypedStore` 对外 API surface 总览与推荐使用方式。
 - `specs/`：单主题需求、范围、设计、非目标、验收口径
 
 ## Authoring Rules
@@ -21,3 +22,5 @@
 ## Current Topics
 
 - `specs/typed-store.md`：`TypedStore` SDK 的定位、架构、里程碑与验证策略。
+
+- `architecture/publishing.md`：TestPyPI / PyPI Trusted Publisher 配置与发布前检查清单。

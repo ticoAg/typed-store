@@ -8,3 +8,9 @@
 - 通用设计原则
 
 当前工作区尚处于初始化阶段，后续可按主题逐步补充。
+
+
+当前已维护的专题：
+
+- `api-surface.md`：当前 SDK 对外 API 面与推荐使用方式。
+- `publishing.md`：发布配置与 Trusted Publisher 操作清单。

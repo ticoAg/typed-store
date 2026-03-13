@@ -48,6 +48,9 @@
 - 增加 GitHub Actions CI 工作流
 - 增加 GitHub Actions release workflow（GitHub Release -> build -> PyPI publish）
 - 增加 `.gitignore`
+- 重写并增强 `README.md`
+- 新增 `CHANGELOG.md`
+- 新增 `docs/architecture/api-surface.md`
 - 运行 `uv run pytest`，当前结果：21 passed
 - 运行 `uv run ruff check .` / `uv run ruff format --check .` / `uv run ty check`，当前结果：全部通过
 - 运行 `uv build`，确认当前包可生成 sdist 和 wheel
@@ -83,6 +86,8 @@
 - `tests/test_examples.py`
 - `.github/workflows/release.yml`
 - `docs/architecture/publishing.md`
+- `docs/architecture/api-surface.md`
+- `CHANGELOG.md`
 - 验证命令：`uv run pytest`
 - 验证命令：`uv build`
 
