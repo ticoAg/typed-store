@@ -77,7 +77,7 @@ service = UserService(store.sync)
 service.register_admin("alice@example.com")
 ```
 
-> 完整示例见 [`examples/`](examples/)，对应 smoke 测试见 [`tests/test_examples.py`](tests/test_examples.py)。
+> 完整示例见 [`examples/`](examples/)
 
 ## Requirements
 
