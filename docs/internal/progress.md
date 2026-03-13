@@ -2,7 +2,7 @@
 
 - Status: active
 - Owner: mixed
-- Spec: docs/specs/typed-store.md
+- Spec: docs/design-spec.md
 - Code SSOT: `typed_store/`, `tests/`, `examples/`, `pyproject.toml`
 - Last Updated: 2026-03-13
 
@@ -21,8 +21,8 @@
 ## Done
 
 - 建立工作区级 `AGENTS first` 规则体系
-- 建立 `workflow.md` 作为恢复与推进真源
-- 创建 `docs/specs/typed-store.md` 作为 SDK 设计真源
+- 建立 `docs/internal/workflow.md` 作为恢复与推进真源
+- 创建 `docs/design-spec.md` 作为 SDK 设计真源
 - 创建本进度文档用于持续追踪
 - 新增 `pyproject.toml`，完成项目依赖与测试配置
 - 实现 `typed_store/engine.py`
@@ -50,7 +50,7 @@
 - 增加 `.gitignore`
 - 重写并增强 `README.md`
 - 新增 `CHANGELOG.md`
-- 新增 `docs/architecture/api-surface.md`
+- 新增 `docs/api-surface.md`
 - 运行 `uv run pytest`，当前结果：21 passed
 - 运行 `uv run ruff check .` / `uv run ruff format --check .` / `uv run ty check`，当前结果：全部通过
 - 运行 `uv build`，确认当前包可生成 sdist 和 wheel
@@ -85,8 +85,8 @@
 - `tests/test_error_boundaries.py`
 - `tests/test_examples.py`
 - `.github/workflows/release.yml`
-- `docs/architecture/publishing.md`
-- `docs/architecture/api-surface.md`
+- `docs/publishing.md`
+- `docs/api-surface.md`
 - `CHANGELOG.md`
 - 验证命令：`uv run pytest`
 - 验证命令：`uv build`

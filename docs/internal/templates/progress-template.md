@@ -2,7 +2,7 @@
 
 - Status: proposed
 - Owner: mixed
-- Spec: docs/specs/<topic>.md
+- Spec: docs/<topic-design>.md
 - Code SSOT: <paths>
 - Last Updated: YYYY-MM-DD
 

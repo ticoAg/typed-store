@@ -244,6 +244,6 @@
 ## 12. Related docs
 
 - `README.md`
-- `docs/specs/typed-store.md`
-- `docs/architecture/publishing.md`
+- `docs/design-spec.md`
+- `docs/publishing.md`
 - `CHANGELOG.md`

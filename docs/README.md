@@ -1,26 +1,17 @@
-# Docs Index
+# Documentation
 
-本目录承载当前工作区的长期文档，不直接复刻代码实现，而是用于组织以下内容：
+## User Guide
 
-- 架构与边界
-- 主题级设计与需求
-- 与研发流程相关的长期结论
+| Document | Description |
+|---|---|
+| [api-surface.md](api-surface.md) | API reference — entry points, methods, usage scenarios |
+| [design-spec.md](design-spec.md) | Design specification — goals, architecture, core concepts |
+| [publishing.md](publishing.md) | Release & publishing guide for PyPI / TestPyPI |
 
-## Layout
+## Internal (Development)
 
-- `architecture/`：长期有效的工作区架构、边界、设计原则
-- `architecture/api-surface.md`：`TypedStore` 对外 API surface 总览与推荐使用方式。
-- `specs/`：单主题需求、范围、设计、非目标、验收口径
-
-## Authoring Rules
-
-- 文档优先解释 why / scope / flow / verification
-- 行为与实现细节以代码为 SSOT
-- 需要长期保留的结论写入 `docs/`
-- 主题推进状态写入 `todo/`，不要把动态进度写进这里
-
-## Current Topics
-
-- `specs/typed-store.md`：`TypedStore` SDK 的定位、架构、里程碑与验证策略。
-
-- `architecture/publishing.md`：TestPyPI / PyPI Trusted Publisher 配置与发布前检查清单。
+| Document | Description |
+|---|---|
+| [internal/workflow.md](internal/workflow.md) | Development workflow & task recovery procedure |
+| [internal/progress.md](internal/progress.md) | Current progress tracking for TypedStore |
+| [internal/templates/](internal/templates/) | Spec & progress document templates |

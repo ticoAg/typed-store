@@ -25,15 +25,15 @@ note: Shared rules for the current workspace and all future child projects.
 进入当前工作区后，默认按以下顺序建立上下文：
 
 1. `./AGENTS.md`
-2. `./workflow.md`
+2. `./docs/internal/workflow.md`
 3. `./README.md`
 4. 目标子目录中的 `README.md` / `AGENTS.md`（若存在）
-5. 与任务直接相关的 `docs/`、`todo/`、代码和测试
+5. 与任务直接相关的 `docs/`、代码和测试
 
 补充约定：
 
-- 若任务只涉及工作区治理、协作方式、目录结构或研发流程，优先更新 `./AGENTS.md` 与 `./workflow.md`。
-- 若任务涉及具体模块实现，先判断该模块是否已有自己的 `README.md`、`AGENTS.md`、`docs/specs/*` 或 `todo/*`。
+- 若任务只涉及工作区治理、协作方式、目录结构或研发流程，优先更新 `./AGENTS.md` 与 `./docs/internal/workflow.md`。
+- 若任务涉及具体模块实现，先判断该模块是否已有自己的 `README.md`、`AGENTS.md` 或 `docs/` 下的相关文档。
 - 若模块规则与工作区规则冲突，以更深层目录中的 `AGENTS.md` 为准；若与用户明确指令冲突，以用户指令为准。
 
 ## 3. Single Sources of Truth
@@ -41,11 +41,10 @@ note: Shared rules for the current workspace and all future child projects.
 工作区采用以下 SSOT 约定：
 
 - 行为与实现真源：代码、测试、可运行脚本
-- 协作与恢复真源：`./workflow.md`
+- 协作与恢复真源：`./docs/internal/workflow.md`
 - 工作区级规则真源：`./AGENTS.md`
-- 架构与边界真源：`./docs/architecture/*.md`
-- 特性需求与设计真源：`./docs/specs/<topic>.md`
-- 研发进度与待办真源：`./todo/*.md`
+- API 与架构真源：`./docs/api-surface.md`、`./docs/design-spec.md`
+- 研发进度与待办真源：`./docs/internal/progress.md`
 
 原则：
 
@@ -65,15 +64,15 @@ note: Shared rules for the current workspace and all future child projects.
 ### 4.2 Distinguish rules vs plans vs progress
 
 - `AGENTS.md`：长期有效的规则与协作约定
-- `workflow.md`：任务如何开始、推进、验证、恢复、交接
-- `docs/specs/*.md`：某个主题的需求、范围、设计、验收口径
-- `todo/*.md`：某个主题当前进展、证据、剩余动作、阻塞项
+- `docs/internal/workflow.md`：任务如何开始、推进、验证、恢复、交接
+- `docs/design-spec.md`：需求、范围、设计、验收口径
+- `docs/internal/progress.md`：当前进展、证据、剩余动作、阻塞项
 
 不要混用：
 
 - 不把长期规则写进某个单次任务 TODO
 - 不把短期进度写进 `AGENTS.md`
-- 不把实现细节堆满 `workflow.md`
+- 不把实现细节堆满 `docs/internal/workflow.md`
 
 ## 5. Code as SSOT
 
@@ -106,10 +105,9 @@ note: Shared rules for the current workspace and all future child projects.
 
 为保证研发进度便于追踪，当前工作区约定：
 
-- 每个持续超过一次对话 / 一次提交周期的主题，都应有一份 `todo/<topic>.md`
-- 每份 `todo/<topic>.md` 至少包含：目标、当前状态、已完成、下一步、证据、风险 / 阻塞
-- 每个需要较强设计约束的主题，配套一份 `docs/specs/<topic>.md`
-- `todo/README.md` 作为总索引，列出 active / proposed / blocked / done 主题
+- 每个持续超过一次对话 / 一次提交周期的主题，都应在 `docs/internal/progress.md` 中追踪
+- 进度文档至少包含：目标、当前状态、已完成、下一步、证据、风险 / 阻塞
+- 每个需要较强设计约束的主题，配套一份 `docs/design-spec.md` 或独立设计文档
 
 推荐状态：
 
@@ -125,7 +123,7 @@ note: Shared rules for the current workspace and all future child projects.
 - 优先改真源位置，不先在消费侧打补丁。
 - 每次改动尽量附带最小验证路径。
 - 大改前先补设计文档或任务文档，再实现。
-- 若当前改动会影响工作流或协作边界，必须同步更新 `AGENTS.md`、`workflow.md` 或相关 docs。
+- 若当前改动会影响工作流或协作边界，必须同步更新 `AGENTS.md`、`docs/internal/workflow.md` 或相关 docs。
 
 ## 8. Verification Strategy
 
@@ -139,10 +137,10 @@ note: Shared rules for the current workspace and all future child projects.
 任务中断后，恢复上下文时按以下顺序：
 
 1. `./AGENTS.md`
-2. `./workflow.md`
+2. `./docs/internal/workflow.md`
 3. `./README.md`
-4. 对应主题的 `docs/specs/<topic>.md`
-5. 对应主题的 `todo/<topic>.md`
+4. 对应主题的设计文档（如 `docs/design-spec.md`）
+5. 对应主题的进度文档（如 `docs/internal/progress.md`）
 6. 相关代码、测试、脚本和最近改动
 
 恢复时优先回答：
@@ -163,4 +161,4 @@ note: Shared rules for the current workspace and all future child projects.
 - 如何验证
 - 当前状态与下一步
 
-若本次改动影响了工作流、规则或进度追踪方式，应明确指出已更新 `AGENTS.md`、`workflow.md`、`docs/` 或 `todo/` 中的哪些文件。
+若本次改动影响了工作流、规则或进度追踪方式，应明确指出已更新 `AGENTS.md`、`docs/internal/workflow.md`、`docs/` 中的哪些文件。

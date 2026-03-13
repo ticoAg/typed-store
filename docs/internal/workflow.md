@@ -11,12 +11,12 @@
 ```mermaid
 flowchart TD
     A[进入工作区] --> B[读取 AGENTS.md]
-    B --> C[读取 workflow.md]
+    B --> C[读取 docs/internal/workflow.md]
     C --> D[读取 README.md]
     D --> E{任务类型}
     E -->|工作区治理| F[更新 AGENTS/workflow/docs 索引]
-    E -->|新主题设计| G[创建 docs/specs/<topic>.md]
-    E -->|主题推进| H[更新 todo/<topic>.md]
+    E -->|新主题设计| G[创建设计文档]
+    E -->|主题推进| H[更新 docs/internal/progress.md]
     E -->|代码实现| I[进入真源代码与测试]
     G --> J[定义范围/非目标/验收]
     H --> K[记录状态/证据/下一步]
@@ -32,14 +32,14 @@ flowchart TD
 每次开始任务时，按以下顺序进行：
 
 1. 读 `AGENTS.md`
-2. 读 `workflow.md`
+2. 读 `docs/internal/workflow.md`
 3. 读 `README.md`
 4. 判断是：
    - 工作区治理任务
    - 新主题设计任务
    - 既有主题推进任务
    - 代码实现任务
-5. 找到该任务的真源与对应的 specs/todo
+5. 找到该任务的真源与对应的设计/进度文档
 
 判定时优先问：
 
@@ -75,9 +75,8 @@ flowchart LR
 
 动作：
 
-- 建立 `docs/specs/<topic>.md`
-- 在 `todo/README.md` 里登记为 `proposed`
-- 若主题很快进入执行，再创建 `todo/<topic>.md`
+- 建立设计文档（如 `docs/design-spec.md` 或独立设计文档）
+- 若主题很快进入执行，在 `docs/internal/progress.md` 中登记追踪
 
 ### 2.2 Active
 
@@ -87,7 +86,7 @@ flowchart LR
 
 动作：
 
-- 维护 `todo/<topic>.md`
+- 维护 `docs/internal/progress.md`
 - 记录最近完成事项、下一步、验证证据
 - 保持内容简洁，可供下次恢复直接使用
 
@@ -99,9 +98,9 @@ flowchart LR
 
 动作：
 
-- 在 `todo/<topic>.md` 明确阻塞原因
+- 在 `docs/internal/progress.md` 明确阻塞原因
 - 写清恢复条件
-- 不要让“阻塞”只停留在聊天记录里
+- 不要让"阻塞"只停留在聊天记录里
 
 ### 2.4 Done / Archived
 
@@ -111,44 +110,40 @@ flowchart LR
 
 动作：
 
-- 在 `todo/<topic>.md` 标记为 `done`
+- 在 `docs/internal/progress.md` 标记为 `done`
 - 如后续很少再修改，可将其索引为 `archived`
-- 相关长期结论应沉淀到 `docs/` 或模块 README，而不是只留在 TODO
+- 相关长期结论应沉淀到 `docs/` 或模块 README，而不是只留在进度文档
 
 ## 3. Directory Responsibilities
 
 ### 3.1 Root
 
 - `AGENTS.md`：长期规则
-- `workflow.md`：协作流程与恢复路径
 - `README.md`：仓库入口与阅读地图
 
 ### 3.2 `docs/`
 
 - `docs/README.md`：文档索引
-- `docs/architecture/`：长期架构、边界、原则
-- `docs/specs/`：主题级需求与设计
+- `docs/api-surface.md`：API 参考
+- `docs/design-spec.md`：设计规格
+- `docs/publishing.md`：发布指南
+- `docs/internal/`：内部开发文档（工作流、进度、模板）
 
-### 3.3 `todo/`
-
-- `todo/README.md`：主题总览
-- `todo/<topic>.md`：单主题进度、证据、下一步、阻塞
-
-### 3.4 Code and tests
+### 3.3 Code and tests
 
 - 代码与测试负责表达真实行为
 - 文档只指向、解释、组织它们，不替代它们
 
 ## 4. Progress Tracking Contract
 
-每份 `todo/<topic>.md` 建议使用以下结构：
+进度文档（`docs/internal/progress.md`）建议使用以下结构：
 
 ```markdown
 # <Topic>
 
 - Status: active
 - Owner: human / agent / mixed
-- Spec: docs/specs/<topic>.md
+- Spec: docs/design-spec.md
 - Code SSOT: <paths>
 - Last Updated: YYYY-MM-DD
 
@@ -173,12 +168,12 @@ flowchart LR
 
 ## 5. Design-first but not doc-heavy
 
-工作方式强调“先设计后实现”，但不追求文档负担过重：
+工作方式强调"先设计后实现"，但不追求文档负担过重：
 
-- 简单改动：可直接实现，只在 `todo` 记录最小证据
-- 多步骤改动：先补 `docs/specs/<topic>.md`
-- 长周期主题：同时维护 `docs/specs/<topic>.md` 和 `todo/<topic>.md`
-- 纯规则 / 工作流调整：优先更新 `AGENTS.md` 与 `workflow.md`
+- 简单改动：可直接实现，只在进度文档记录最小证据
+- 多步骤改动：先补设计文档
+- 长周期主题：同时维护设计文档和进度文档
+- 纯规则 / 工作流调整：优先更新 `AGENTS.md` 与 `docs/internal/workflow.md`
 
 ## 6. Validation Matrix
 
@@ -186,8 +181,8 @@ flowchart LR
 |---|---|
 | 工作区规则 | 阅读顺序、作用域、目录职责自洽 |
 | workflow 调整 | 恢复路径、状态流转、目录职责自洽 |
-| docs/specs | 范围、非目标、验收与路径引用一致 |
-| todo 更新 | 状态、代码真源、证据、下一步完整 |
+| 设计文档 | 范围、非目标、验收与路径引用一致 |
+| 进度更新 | 状态、代码真源、证据、下一步完整 |
 | 代码实现 | 最小运行、测试或手动验证闭环 |
 
 优先级：
@@ -203,10 +198,10 @@ flowchart LR
 ```mermaid
 flowchart TD
     A[恢复任务] --> B[读 AGENTS.md]
-    B --> C[读 workflow.md]
+    B --> C[读 docs/internal/workflow.md]
     C --> D[读 README.md]
-    D --> E[读 docs/specs/<topic>.md]
-    E --> F[读 todo/<topic>.md]
+    D --> E[读 docs/design-spec.md]
+    E --> F[读 docs/internal/progress.md]
     F --> G[读相关代码/测试]
     G --> H[执行下一步最小动作]
 ```
@@ -221,7 +216,7 @@ flowchart TD
 
 ## 8. Handoff Rules
 
-交接时不要只说“差不多完成了”，而要能落到文件和证据：
+交接时不要只说"差不多完成了"，而要能落到文件和证据：
 
 - 主题文档在哪
 - 进度文档在哪
@@ -232,7 +227,6 @@ flowchart TD
 若当前改动调整了工作区治理方式，应同步更新：
 
 - `AGENTS.md`
-- `workflow.md`
+- `docs/internal/workflow.md`
 - `README.md`
 - `docs/README.md`
-- `todo/README.md`

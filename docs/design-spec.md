@@ -230,9 +230,9 @@ uv build
 ## References
 
 - `AGENTS.md`
-- `workflow.md`
+- `docs/internal/workflow.md`
 - `README.md`
-- `todo/typed-store.md`
+- `docs/internal/progress.md`
 - `examples/sync_basic.py`
 - `examples/async_basic.py`
 - `examples/repository_pattern.py`
@@ -240,4 +240,4 @@ uv build
 - `tests/test_error_boundaries.py`
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
-- `docs/architecture/publishing.md`
+- `docs/publishing.md`
