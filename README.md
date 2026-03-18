@@ -1,6 +1,6 @@
 # TypedStore
 
-[![Python](https://img.shields.io/badge/python-%E2%89%A53.13-blue)](https://www.python.org/) [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-%E2%89%A52.0.36-green)](https://www.sqlalchemy.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE) [![Status](https://img.shields.io/badge/status-alpha-orange)]()
+[![Python](https://img.shields.io/badge/python-%E2%89%A53.12-blue)](https://www.python.org/) [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-%E2%89%A52.0.36-green)](https://www.sqlalchemy.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE) [![Status](https://img.shields.io/badge/status-alpha-orange)]()
 
 Type-first data access SDK built on top of SQLAlchemy 2.x.
 
@@ -121,7 +121,7 @@ service.register_admin("alice@example.com")
 
 | Dependency | Version   |
 | ---------- | --------- |
-| Python     | >= 3.13   |
+| Python     | >= 3.12   |
 | SQLAlchemy | >= 2.0.36 |
 
 ## Documentation
