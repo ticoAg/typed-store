@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import SyncTypedStore
+from typed_store import Query, SyncTypedStore
 
 
 class Base(DeclarativeBase):
@@ -34,10 +34,17 @@ class UserRepository:
         return self.store.insert(user, session=session, commit=commit)
 
     def get_by_email(self, email: str, *, session=None) -> User | None:
-        return self.store.find_one(User, User.email == email, session=session)
+        return self.store.find_one(
+            User,
+            query=Query[User]().where(User.email == email),
+            session=session,
+        )
 
     def list_admins(self) -> list[User]:
-        return self.store.find_many(User, User.role == "admin", order=User.id.asc())
+        return self.store.find_many(
+            User,
+            query=Query[User]().where(User.role == "admin").order(User.id.asc()),
+        )
 
 
 class UserService:

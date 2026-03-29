@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import SyncTypedStore, TypedStoreModel
+from typed_store import PageRequest, Patch, Query, SyncTypedStore, TypedStoreModel
 
 
 class Base(DeclarativeBase):
@@ -35,12 +35,12 @@ users.insert(User(name="carol", role="admin"))
 
 users.insert_many([User(name="dave", role="member"), User(name="eve", role="admin")])
 
-# 绑定视图: find_many (内联 filter + order)
-admins = users.find_many(User.role == "admin", order=User.name.asc())
+# 绑定视图: find_many
+admins = users.find_many(query=Query[User]().where(User.role == "admin").order(User.name.asc()))
 print("admins:", [u.name for u in admins])
 
 # 绑定视图: find_one
-first = users.find_one(User.name == "alice")
+first = users.find_one(query=Query[User]().where(User.name == "alice"))
 print("find_one:", first.name if first else None)
 
 # 绑定视图: get (按主键)
@@ -48,17 +48,23 @@ user = users.get(1)
 print("get(1):", user.name if user else None)
 
 # 绑定视图: paginate
-page = users.paginate(User.role == "admin", limit=2, offset=0)
+page = users.paginate(
+    query=Query[User]().where(User.role == "admin"),
+    page=PageRequest(limit=2, offset=0),
+)
 print(f"page: {[u.name for u in page.items]} (total={page.total})")
 
-# 绑定视图: update_fields
-updated = users.update_fields({"role": "superadmin"}, User.name == "alice")
+# 绑定视图: update
+updated = users.update(
+    query=Query[User]().where(User.name == "alice"),
+    patch=Patch[User]({"role": "superadmin"}),
+)
 print(f"updated {updated} row(s)")
-alice = users.find_one(User.name == "alice")
+alice = users.find_one(query=Query[User]().where(User.name == "alice"))
 print(f"alice role: {alice.role if alice else None}")
 
-# 绑定视图: delete_where
-deleted = users.delete_where(User.role == "member")
+# 绑定视图: delete
+deleted = users.delete(query=Query[User]().where(User.role == "member"))
 print(f"deleted {deleted} member(s)")
-remaining = users.find_many()
+remaining = users.find_many(query=Query[User]())
 print("remaining:", [u.name for u in remaining])

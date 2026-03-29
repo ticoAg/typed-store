@@ -54,3 +54,22 @@ def test_model_mixin_example_smoke(tmp_path: Path) -> None:
     assert "find_one:" in output
     assert "updated" in output
     assert "deleted" in output
+
+
+def test_readme_teaches_query_and_bind_first() -> None:
+    readme = (REPO_ROOT / "README.md").read_text()
+
+    assert "User.bind(store)" in readme
+    assert "Query[" in readme
+    assert "PageRequest(" in readme
+    assert "QuerySpec" not in readme
+
+
+def test_examples_no_longer_use_queryspec() -> None:
+    sync_example = (REPO_ROOT / "examples" / "sync_basic.py").read_text()
+    async_example = (REPO_ROOT / "examples" / "async_basic.py").read_text()
+
+    assert "Query[" in sync_example
+    assert "QuerySpec" not in sync_example
+    assert "Query[" in async_example
+    assert "QuerySpec" not in async_example

@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
 from tests.conftest import Member, Team, Widget
-from typed_store import QuerySpec
+from typed_store import PageRequest, Patch, ProjectionQuery, Query
 
 
 @pytest.mark.asyncio
@@ -18,14 +18,13 @@ async def test_async_insert_find_and_paginate(store):
         ]
     )
 
-    page = await store.async_.paginate(
-        Widget, Widget.category == "a", order=Widget.id.asc(), limit=2, offset=0
-    )
+    query = Query[Widget]().where(Widget.category == "a").order(Widget.id.asc())
+    page = await store.async_.paginate(Widget, query=query, page=PageRequest(limit=2, offset=0))
 
     assert page.total == 2
     assert [item.name for item in page.items] == ["alpha", "gamma"]
 
-    found = await store.async_.find_one(Widget, Widget.name == "beta")
+    found = await store.async_.find_one(Widget, query=Query[Widget]().where(Widget.name == "beta"))
     assert found is not None
     assert found.category == "b"
 
@@ -38,23 +37,26 @@ async def test_async_select_rows_update_delete_and_mixin(store):
 
     rows = await store.async_.select_rows(
         Widget,
-        QuerySpec[Widget]().select_columns(func.count()).where(Widget.category == "a"),
+        projection=ProjectionQuery[tuple[int]](func.count()).where(Widget.category == "a"),
     )
     assert rows[0][0] == 2
 
-    updated = await store.async_.update_fields(
+    updated = await store.async_.update(
         Widget,
-        {"category": "changed"},
-        Widget.name == "alpha",
+        query=Query[Widget]().where(Widget.name == "alpha"),
+        patch=Patch[Widget]({"category": "changed"}),
     )
     assert updated == 1
 
-    deleted = await store.async_.delete_where(Widget, Widget.category == "changed")
+    deleted = await store.async_.delete(
+        Widget,
+        query=Query[Widget]().where(Widget.category == "changed"),
+    )
     assert deleted == 1
 
     widgets = Widget.bind(store.async_)
     await widgets.insert(Widget(name="mixin-async", category="ma"))
-    items = await widgets.find_many(Widget.category == "ma")
+    items = await widgets.find_many(query=Query[Widget]().where(Widget.category == "ma"))
     assert len(items) == 1
 
 
@@ -64,7 +66,9 @@ async def test_async_unit_of_work_commit_and_rollback(store):
         assert uow.session is not None
         uow.session.add(Widget(name="inside-async-uow", category="uow"))
 
-    rows = await store.async_.find_many(Widget, Widget.category == "uow")
+    rows = await store.async_.find_many(
+        Widget, query=Query[Widget]().where(Widget.category == "uow")
+    )
     assert len(rows) == 1
 
     with pytest.raises(RuntimeError):
@@ -72,7 +76,12 @@ async def test_async_unit_of_work_commit_and_rollback(store):
             uow.session.add(Widget(name="rolled-back", category="rollback"))
             raise RuntimeError("boom")
 
-    assert await store.async_.find_many(Widget, Widget.category == "rollback") == []
+    assert (
+        await store.async_.find_many(
+            Widget, query=Query[Widget]().where(Widget.category == "rollback")
+        )
+        == []
+    )
 
 
 @pytest.mark.asyncio
@@ -81,16 +90,19 @@ async def test_async_external_session_reuse_and_loader_options(store, provider):
         await store.async_.insert(
             Widget(name="external", category="draft"), session=session, commit=False
         )
-        await store.async_.update_fields(
+        await store.async_.update(
             Widget,
-            {"category": "persisted"},
-            Widget.name == "external",
+            query=Query[Widget]().where(Widget.name == "external"),
+            patch=Patch[Widget]({"category": "persisted"}),
             session=session,
             commit=False,
         )
         await session.commit()
 
-    found = await store.async_.find_one(Widget, Widget.name == "external")
+    found = await store.async_.find_one(
+        Widget,
+        query=Query[Widget]().where(Widget.name == "external"),
+    )
     assert found is not None
     assert found.category == "persisted"
 
@@ -100,8 +112,8 @@ async def test_async_external_session_reuse_and_loader_options(store, provider):
         [Member(team_id=team.id, name="alice"), Member(team_id=team.id, name="bob")]
     )
 
-    spec = QuerySpec[Team]().with_options(selectinload(Team.members)).where(Team.id == team.id)
-    loaded = await store.async_.find_one(Team, spec=spec)
+    query = Query[Team]().with_options(selectinload(Team.members)).where(Team.id == team.id)
+    loaded = await store.async_.find_one(Team, query=query)
 
     assert loaded is not None
     assert [member.name for member in loaded.members] == ["alice", "bob"]

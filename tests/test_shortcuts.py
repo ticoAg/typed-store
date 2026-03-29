@@ -9,7 +9,10 @@ import pytest
 from tests.conftest import Base, Widget
 from typed_store import (
     AsyncTypedStore,
-    QuerySpec,
+    PageRequest,
+    Patch,
+    ProjectionQuery,
+    Query,
     SyncTypedStore,
     TypedStore,
 )
@@ -27,7 +30,7 @@ class TestSyncFromUrl:
         Base.metadata.create_all(store.engine)
 
         store.insert(Widget(name="alice", category="a"))
-        rows = store.find_many(Widget)
+        rows = store.find_many(Widget, query=Query[Widget]())
         assert len(rows) == 1
         assert rows[0].name == "alice"
 
@@ -51,7 +54,7 @@ class TestAsyncFromUrl:
             await conn.run_sync(Base.metadata.create_all)
 
         await store.insert(Widget(name="alice", category="a"))
-        rows = await store.find_many(Widget)
+        rows = await store.find_many(Widget, query=Query[Widget]())
         assert len(rows) == 1
         assert rows[0].name == "alice"
         await store.engine.dispose()
@@ -65,7 +68,7 @@ class TestTypedStoreFromUrl:
         Base.metadata.create_all(ts.engine)
 
         ts.sync.insert(Widget(name="alice", category="a"))
-        rows = ts.sync.find_many(Widget)
+        rows = ts.sync.find_many(Widget, query=Query[Widget]())
         assert len(rows) == 1
 
     def test_both_urls(self, tmp_path: Path):
@@ -114,12 +117,12 @@ class TestLifecycleApis:
 
 
 # ---------------------------------------------------------------------------
-# Inline filter parameters
+# Query objects
 # ---------------------------------------------------------------------------
 
 
-class TestInlineFilters:
-    def test_find_many_with_filter(self, store):
+class TestQueryObjects:
+    def test_find_many_with_query(self, store):
         store.sync.insert_many(
             [
                 Widget(name="alice", category="a"),
@@ -128,7 +131,7 @@ class TestInlineFilters:
             ]
         )
 
-        rows = store.sync.find_many(Widget, Widget.category == "a")
+        rows = store.sync.find_many(Widget, query=Query[Widget]().where(Widget.category == "a"))
         assert len(rows) == 2
 
     def test_find_many_with_order(self, store):
@@ -139,10 +142,13 @@ class TestInlineFilters:
             ]
         )
 
-        rows = store.sync.find_many(Widget, Widget.category == "a", order=Widget.name.asc())
+        rows = store.sync.find_many(
+            Widget,
+            query=Query[Widget]().where(Widget.category == "a").order(Widget.name.asc()),
+        )
         assert [r.name for r in rows] == ["alice", "bob"]
 
-    def test_find_many_with_limit_offset(self, store):
+    def test_paginate_uses_page_request(self, store):
         store.sync.insert_many(
             [
                 Widget(name="a", category="x"),
@@ -151,12 +157,14 @@ class TestInlineFilters:
             ]
         )
 
-        rows = store.sync.find_many(
-            Widget, Widget.category == "x", order=Widget.id.asc(), limit=2, offset=1
+        page = store.sync.paginate(
+            Widget,
+            query=Query[Widget]().where(Widget.category == "x").order(Widget.id.asc()),
+            page=PageRequest(limit=2, offset=1),
         )
-        assert [r.name for r in rows] == ["b", "c"]
+        assert [r.name for r in page.items] == ["b", "c"]
 
-    def test_find_one_with_filter(self, store):
+    def test_find_one_with_query(self, store):
         store.sync.insert_many(
             [
                 Widget(name="alice", category="a"),
@@ -164,27 +172,25 @@ class TestInlineFilters:
             ]
         )
 
-        found = store.sync.find_one(Widget, Widget.name == "bob")
+        found = store.sync.find_one(Widget, query=Query[Widget]().where(Widget.name == "bob"))
         assert found is not None
         assert found.category == "b"
 
-    def test_paginate_with_inline_params(self, store):
+    def test_select_rows_uses_projection_query(self, store):
         store.sync.insert_many(
             [
                 Widget(name="a", category="x"),
                 Widget(name="b", category="x"),
-                Widget(name="c", category="y"),
             ]
         )
 
-        page = store.sync.paginate(
-            Widget, Widget.category == "x", order=Widget.id.asc(), limit=1, offset=0
+        rows = store.sync.select_rows(
+            Widget,
+            projection=ProjectionQuery[tuple[int]](Widget.id).where(Widget.category == "x"),
         )
-        assert page.total == 2
-        assert len(page.items) == 1
-        assert page.items[0].name == "a"
+        assert len(rows) == 2
 
-    def test_delete_where_with_filter(self, store):
+    def test_delete_with_query(self, store):
         store.sync.insert_many(
             [
                 Widget(name="a", category="del"),
@@ -192,11 +198,11 @@ class TestInlineFilters:
             ]
         )
 
-        deleted = store.sync.delete_where(Widget, Widget.category == "del")
+        deleted = store.sync.delete(Widget, query=Query[Widget]().where(Widget.category == "del"))
         assert deleted == 1
-        assert len(store.sync.find_many(Widget)) == 1
+        assert len(store.sync.find_many(Widget, query=Query[Widget]())) == 1
 
-    def test_update_fields_with_filter(self, store):
+    def test_update_with_patch(self, store):
         store.sync.insert_many(
             [
                 Widget(name="a", category="old"),
@@ -204,31 +210,20 @@ class TestInlineFilters:
             ]
         )
 
-        updated = store.sync.update_fields(Widget, {"category": "new"}, Widget.name == "a")
+        updated = store.sync.update(
+            Widget,
+            query=Query[Widget]().where(Widget.name == "a"),
+            patch=Patch[Widget]({"category": "new"}),
+        )
         assert updated == 1
-        found = store.sync.find_one(Widget, Widget.name == "a")
+        found = store.sync.find_one(Widget, query=Query[Widget]().where(Widget.name == "a"))
         assert found is not None
         assert found.category == "new"
 
-    def test_filters_combined_with_spec(self, store):
-        """Filters and spec= can coexist."""
-        store.sync.insert_many(
-            [
-                Widget(name="a", category="x"),
-                Widget(name="b", category="x"),
-                Widget(name="c", category="y"),
-            ]
-        )
 
-        spec = QuerySpec[Widget]().order(Widget.id.asc())
-        rows = store.sync.find_many(Widget, Widget.category == "x", spec=spec)
-        assert len(rows) == 2
-        assert rows[0].name == "a"
-
-
-class TestAsyncInlineFilters:
+class TestAsyncQueryObjects:
     @pytest.mark.asyncio
-    async def test_find_many_with_filter(self, store):
+    async def test_find_many_with_query(self, store):
         await store.async_.insert_many(
             [
                 Widget(name="alice", category="a"),
@@ -236,12 +231,15 @@ class TestAsyncInlineFilters:
             ]
         )
 
-        rows = await store.async_.find_many(Widget, Widget.category == "a")
+        rows = await store.async_.find_many(
+            Widget,
+            query=Query[Widget]().where(Widget.category == "a"),
+        )
         assert len(rows) == 1
         assert rows[0].name == "alice"
 
     @pytest.mark.asyncio
-    async def test_paginate_with_inline_params(self, store):
+    async def test_paginate_with_page_request(self, store):
         await store.async_.insert_many(
             [
                 Widget(name="a", category="x"),
@@ -250,7 +248,11 @@ class TestAsyncInlineFilters:
             ]
         )
 
-        page = await store.async_.paginate(Widget, Widget.category == "x", limit=10, offset=0)
+        page = await store.async_.paginate(
+            Widget,
+            query=Query[Widget]().where(Widget.category == "x"),
+            page=PageRequest(limit=10, offset=0),
+        )
         assert page.total == 2
 
 
@@ -267,7 +269,7 @@ class TestSyncModelBinding:
     def test_insert_and_find_many(self, store):
         widgets = Widget.bind(store.sync)
         widgets.insert(Widget(name="alice", category="a"))
-        rows = widgets.find_many()
+        rows = widgets.find_many(query=Query[Widget]())
         assert len(rows) == 1
         assert rows[0].name == "alice"
 
@@ -286,13 +288,13 @@ class TestSyncModelBinding:
                 Widget(name="b", category="y"),
             ]
         )
-        rows = widgets.find_many(Widget.category == "x")
+        rows = widgets.find_many(query=Query[Widget]().where(Widget.category == "x"))
         assert len(rows) == 1
 
     def test_find_one(self, store):
         widgets = Widget.bind(store.sync)
         widgets.insert(Widget(name="alice", category="a"))
-        found = widgets.find_one(Widget.name == "alice")
+        found = widgets.find_one(query=Query[Widget]().where(Widget.name == "alice"))
         assert found is not None
 
     def test_paginate(self, store):
@@ -303,10 +305,13 @@ class TestSyncModelBinding:
                 Widget(name="b", category="x"),
             ]
         )
-        page = widgets.paginate(Widget.category == "x", limit=10, offset=0)
+        page = widgets.paginate(
+            query=Query[Widget]().where(Widget.category == "x"),
+            page=PageRequest(limit=10, offset=0),
+        )
         assert page.total == 2
 
-    def test_delete_where(self, store):
+    def test_delete(self, store):
         widgets = Widget.bind(store.sync)
         widgets.insert_many(
             [
@@ -314,14 +319,17 @@ class TestSyncModelBinding:
                 Widget(name="b", category="keep"),
             ]
         )
-        deleted = widgets.delete_where(Widget.category == "del")
+        deleted = widgets.delete(query=Query[Widget]().where(Widget.category == "del"))
         assert deleted == 1
-        assert len(widgets.find_many()) == 1
+        assert len(widgets.find_many(query=Query[Widget]())) == 1
 
-    def test_update_fields(self, store):
+    def test_update(self, store):
         widgets = Widget.bind(store.sync)
         widgets.insert(Widget(name="a", category="old"))
-        updated = widgets.update_fields({"category": "new"}, Widget.name == "a")
+        updated = widgets.update(
+            query=Query[Widget]().where(Widget.name == "a"),
+            patch=Patch[Widget]({"category": "new"}),
+        )
         assert updated == 1
 
 
@@ -335,7 +343,7 @@ class TestAsyncModelBinding:
     async def test_insert_and_find_many(self, store):
         widgets = Widget.bind(store.async_)
         await widgets.insert(Widget(name="alice", category="a"))
-        rows = await widgets.find_many()
+        rows = await widgets.find_many(query=Query[Widget]())
         assert len(rows) == 1
         assert rows[0].name == "alice"
 

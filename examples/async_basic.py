@@ -8,7 +8,7 @@ from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import AsyncTypedStore
+from typed_store import AsyncTypedStore, PageRequest, Query
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -31,8 +31,11 @@ async def main() -> None:
         await conn.run_sync(Base.metadata.create_all)
 
     await store.insert(User(name="alice"))
-    rows = await store.find_many(User, User.name == "alice")
+    query = Query[User]().where(User.name == "alice")
+    rows = await store.find_many(User, query=query)
+    page = await store.paginate(User, query=query, page=PageRequest(limit=10, offset=0))
     print([row.name for row in rows])
+    print(page.total)
     await store.engine.dispose()
 
 

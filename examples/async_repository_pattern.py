@@ -9,7 +9,7 @@ from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import AsyncTypedStore
+from typed_store import AsyncTypedStore, Query
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -36,10 +36,17 @@ class UserRepository:
         return await self.store.insert(user, session=session, commit=commit)
 
     async def get_by_email(self, email: str, *, session=None) -> User | None:
-        return await self.store.find_one(User, User.email == email, session=session)
+        return await self.store.find_one(
+            User,
+            query=Query[User]().where(User.email == email),
+            session=session,
+        )
 
     async def list_admins(self) -> list[User]:
-        return await self.store.find_many(User, User.role == "admin", order=User.id.asc())
+        return await self.store.find_many(
+            User,
+            query=Query[User]().where(User.role == "admin").order(User.id.asc()),
+        )
 
 
 class UserService:
