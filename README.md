@@ -10,9 +10,9 @@ TypedStore 把项目中重复出现的 session 管理、CRUD facade、分页与�
 
 - **Explicit sync / async** — `SyncTypedStore` 与 `AsyncTypedStore` 分离，无隐式双重语义
 - **One-line init** — `SyncTypedStore.from_url("sqlite:///app.db")` 即可开始使用
-- **Inline filters** — `store.find_many(User, User.role == "admin", order=User.id.asc())`
+- **Protocol-first queries** — `store.find_many(User, query=Query[User]().where(...))`
 - **Bind-first models** — `User.bind(store).find_many()` 让模型天然具备显式绑定能力
-- **QuerySpec** — 过滤、排序、分页、投影、loader options 统一建模
+- **Explicit request objects** — `Query`, `PageRequest`, `Patch`, `ProjectionQuery`
 - **UnitOfWork** — 明确的事务边界（sync / async）
 - **TypedStoreModel** — 为模型提供纯函数式 `bind(store)` 入口
 - **TypedStore composition root** — 通过 `.sync` / `.async_` 统一装配 sync / async store
@@ -37,46 +37,51 @@ uv sync --group dev
 ### Sync
 
 ```python
-from typed_store import SyncTypedStore
+from typed_store import PageRequest, Query, SyncTypedStore
 
 store = SyncTypedStore.from_url("sqlite:///app.db")
 Base.metadata.create_all(store.engine)
 
 store.insert(User(name="alice"))
-store.find_many(User, User.role == "admin", order=User.id.asc())
-store.paginate(User, User.role == "admin", limit=10, offset=0)
+query = Query[User]().where(User.role == "admin").order(User.id.asc())
+page = PageRequest(limit=10, offset=0)
+
+store.find_many(User, query=query)
+store.paginate(User, query=query, page=page)
 ```
 
 ### Async
 
 ```python
-from typed_store import AsyncTypedStore
+from typed_store import AsyncTypedStore, PageRequest, Query
 
 store = AsyncTypedStore.from_url("sqlite+aiosqlite:///app.db")
 
 await store.insert(User(name="alice"))
-await store.find_many(User, User.role == "admin")
+query = Query[User]().where(User.role == "admin")
+await store.find_many(User, query=query)
+await store.paginate(User, query=query, page=PageRequest(limit=10, offset=0))
 ```
 
 ### TypedStore (sync + async)
 
 ```python
-from typed_store import TypedStore
+from typed_store import Query, TypedStore
 
 ts = TypedStore.from_url("sqlite:///app.db", async_url="sqlite+aiosqlite:///app.db")
 
 # 显式使用 sync store
-ts.sync.find_many(User)
+ts.sync.find_many(User, query=Query[User]())
 ts.sync.insert(User(name="alice"))
 
 # 异步明确走 .async_
-await ts.async_.find_many(User)
+await ts.async_.find_many(User, query=Query[User]())
 ```
 
 ### Model Binding
 
 ```python
-from typed_store import SyncTypedStore, TypedStoreModel
+from typed_store import PageRequest, Query, SyncTypedStore, TypedStoreModel
 
 store = SyncTypedStore.from_url("sqlite:///app.db")
 
@@ -85,24 +90,29 @@ class User(Base, TypedStoreModel):
 
 users = User.bind(store)
 users.insert(User(name="alice"))
-users.find_many(User.role == "admin")
+users.find_many(query=Query[User]().where(User.role == "admin"))
 users.get(1)
-users.paginate(limit=10)
+users.paginate(query=Query[User](), page=PageRequest(limit=10, offset=0))
 ```
 
-### Complex Queries (QuerySpec)
+### Request Objects
 
 ```python
-from typed_store import QuerySpec
+from typed_store import PageRequest, Patch, Query
 
-spec = QuerySpec[User]().where(User.role == "admin").order(User.id.asc()).paginate(limit=10, offset=0)
-store.find_many(User, spec=spec)
+query = Query[User]().where(User.role == "admin").order(User.id.asc())
+page = PageRequest(limit=10, offset=0)
+patch = Patch[User]({"role": "superadmin"})
+
+store.find_many(User, query=query)
+store.paginate(User, query=query, page=page)
+store.update(User, query=Query[User]().where(User.name == "alice"), patch=patch)
 ```
 
 ### Model Mixin
 
 ```python
-from typed_store import SyncTypedStore, TypedStoreModel
+from typed_store import Query, SyncTypedStore, TypedStoreModel
 
 store = SyncTypedStore.from_url("sqlite:///app.db")
 
@@ -111,7 +121,7 @@ class User(Base, TypedStoreModel):
 
 users = User.bind(store)
 users.insert(User(name="alice"))
-items = users.find_many()
+items = users.find_many(query=Query[User]())
 ```
 
 ### Repository Pattern

@@ -2,78 +2,66 @@
 
 ## Overview
 
-`TypedStore` 是计划在当前仓库中实现的一层“类型优先的数据访问 SDK”。
+`TypedStore` 是构建在 SQLAlchemy 2.x 之上的 protocol-first typed data access SDK。
 
-它的目标不是替代 SQLAlchemy，也不是重新实现一个通用 ORM，而是在保留 SQLAlchemy 2.x 模型映射、表达式系统和会话能力的前提下，提供一组更稳定、更可组合、更适合业务开发的 typed data access abstraction。
+当前设计目标不是包装出另一个 ORM，而是把数据访问能力收口成稳定的 public contract：
 
-这个主题的起点来自一个已存在的 `DBORM` 实践：它已经证明“轻量 CRUD facade + 模型 mixin + session 封装”对业务开发有价值，但也暴露了类型不稳定、sync/async 语义不一致、初始化耦合过重等问题。当前仓库将把这些经验收敛成一个更适合长期演进的 SDK。
+- capability protocols 负责定义“可以做什么”
+- request objects 负责表达“这次要怎么做”
+- sync / async 路径保持明确分离
+- 模型能力通过 `Model.bind(store)` 暴露，而不是依赖隐式全局状态
 
 ## Goals
 
-- 在当前仓库内实现 `TypedStore` 作为 SDK 主体，而不是继续堆叠临时 CRUD helper
-- 明确 `TypedStore` 的定位：typed data access SDK on top of SQLAlchemy
-- 保持 `AGENTS first` 和 `code as SSOT` 的工作方式，使设计、实现、进度追踪可恢复
-- 把数据访问能力拆分为稳定边界：engine、session、unit of work、query spec、result types、optional model mixin
-- 将 sync / async API 明确拆分为两个 facade，避免一个类同时承载双重语义
-- 为后续实现与迭代建立清晰的里程碑、验证策略和迁移路线
+- 以 public SDK 的标准收敛 API，而不是继续堆叠内部 helper
+- 用 capability protocols 作为设计骨架
+- 用 `Query` / `PageRequest` / `Patch` / `ProjectionQuery` 作为唯一推荐请求对象
+- 维持 SQLAlchemy-native 的表达能力，不重造 DSL
+- 只在 contract/configuration 边界做最少运行时保护
 
 ## Non-goals
 
-- 不重新发明 SQLAlchemy 的映射系统
-- 不实现一个自定义 SQL DSL 去替代 SQLAlchemy expression system
-- 不把所有复杂查询都强制塞进新抽象层
-- 不在导入期创建 schema、绑定副作用或偷渡环境依赖
-- 不为了“看起来像 ORM”而模糊 API 边界
-- 不再维护旧 `DBORM` 风格兼容层作为长期 public API
+- 不替代 SQLAlchemy 的映射和表达式系统
+- 不继续保留 `QuerySpec`、内联 filter 参数或默认 store 兼容层
+- 不把事务、查询、模型绑定、副作用初始化混成一个大 facade
+- 不在 SDK 内重复做业务数据校验
 
-## Naming and Positioning
+## Positioning
 
-### Why `TypedStore`
+`TypedStore` 的定位是：
 
-选择 `TypedStore` 的原因：
-
-- `Typed`：直接强调该 SDK 的核心主张是“类型系统优先”
-- `Store`：表达“持久化访问入口 / 数据访问门面”，但不过度承诺自己是一个完整 ORM
-- 相较 `DBORM`、`MiniORM`、`LightORM` 等名字，`TypedStore` 更准确地描述它与 SQLAlchemy 的关系：建立在其上，而不是替代它
-
-### Precise positioning
-
-`TypedStore` 的定位：
-
-- 当前仓库的主实现主题之一
-- 一个类型优先的数据访问 SDK
-- 默认服务 repository / service 层，也可为模型提供有限的 Active Record 风格语法糖
-- 先服务自己的项目，再考虑是否具备对外复用价值
+- 面向外部发布的通用 SDK
+- SQLAlchemy 之上的 typed data access layer
+- 适用于 repository、service、脚本和模型优先的数据访问
 
 ## Design Principles
 
-### Type-first
+### Protocol first
 
-- 同一方法不返回多种不稳定结果形态
-- 优先用泛型、结果类型、规格对象表达 contract
-- 减少裸 `dict` 与 `Any`
+- 先定义能力协议，再让 concrete store 去实现
+- public API 依赖协议与 request objects，而不是依赖隐式约定
+
+### Boundary-only validation
+
+- 数据在边界处校验一次即可
+- SDK 内部默认信任已经构造好的 request objects
+- 运行时只保留少量 configuration / contract violation 检查
+
+### Explicit sync / async split
+
+- `SyncTypedStore` 和 `AsyncTypedStore` 分别实现独立协议
+- `TypedStore` 只做 composition root
+
+### Bind-first model capability
+
+- 模型能力是一等能力
+- 只有 `Model.bind(store)`，没有类级默认 store
+- `bind()` 是纯函数式绑定，不在模型类上保存状态
 
 ### SQLAlchemy-native
 
-- 底层继续以 SQLAlchemy 2.x 为单一事实来源
-- 复杂查询允许原生 `select()` escape hatch
-- 不自造一套与 SQLAlchemy 平行的 DSL
-
-### Explicit sync / async boundaries
-
-- `SyncTypedStore` 专注同步数据访问
-- `AsyncTypedStore` 专注异步数据访问
-- `TypedStore` 仅作为聚合入口，而不是主行为载体
-
-### Explicit boundaries
-
-- engine / session / uow / facade / model mixin 分层清晰
-- 不把副作用初始化和业务语义混在一个文件里
-
-### Recoverable development
-
-- 设计文档、工作流文档、进度文档可支持任务恢复
-- 任何设计决策都应能指向后续代码和验证证据
+- 过滤、排序、loader options 继续直接使用 SQLAlchemy expressions / options
+- 自定义语句仍可通过 `select_scalars()` 等 escape hatch 执行
 
 ## Target Architecture
 
@@ -81,38 +69,37 @@
 flowchart TB
     App[Apps / Services / Scripts] --> SyncStore[SyncTypedStore]
     App --> AsyncStore[AsyncTypedStore]
+    App --> Model[TypedStoreModel.bind(store)]
     App --> Bundle[TypedStore]
-    Bundle --> SyncStore
-    Bundle --> AsyncStore
 
-    subgraph TypedStoreCore[TypedStore Core]
-        Engine[Engine Factory]
-        Session[SessionProvider]
-        UOW[UnitOfWork / AsyncUnitOfWork]
-        Spec[QuerySpec]
-        Result[Result Types]
-        Model[TypedStoreModel]
-    end
+    SyncStore --> SyncProtocols[Sync capability protocols]
+    AsyncStore --> AsyncProtocols[Async capability protocols]
+    Model --> BoundView[Bound model view]
 
-    SyncStore --> TypedStoreCore
-    AsyncStore --> TypedStoreCore
-    TypedStoreCore --> SA[SQLAlchemy 2.x]
+    SyncProtocols --> Requests[Query / PageRequest / Patch / ProjectionQuery]
+    AsyncProtocols --> Requests
+    BoundView --> SyncProtocols
+    BoundView --> AsyncProtocols
+
+    SyncStore --> SA[SQLAlchemy 2.x]
+    AsyncStore --> SA
     SA --> DB[(Database)]
 ```
 
-### Implemented package layout
+## Implemented Package Layout
 
 ```text
 ./typed_store/
   __init__.py
   async_store.py
+  bound_model.py
   engine.py
   errors.py
   model.py
-  model_store.py
-  query_spec.py
+  protocols.py
   results.py
   session.py
+  specs.py
   store.py
   sync.py
   uow.py
@@ -120,95 +107,103 @@ flowchart TB
 
 说明：
 
-- `sync.py` 与 `async_store.py` 是正式 facade
-- `store.py` 提供组合入口 `TypedStore`，仅负责暴露 `.sync` / `.async_`
-- `model.py` 提供 bind-first 模型能力入口
-- `bound_model.py` 提供绑定后的模型视图
-- `results.py` 用于消除”一个 API 多种返回结构”的问题
+- `protocols.py` 定义 capability contracts
+- `specs.py` 定义 immutable request objects
+- `sync.py` / `async_store.py` 提供 SQLAlchemy adapters
+- `model.py` / `bound_model.py` 提供 bind-first model surface
+- `store.py` 只保留 composition root 角色
 
 ## Core Concepts
 
-### SessionProvider
+### Capability protocols
 
-职责：
+同步与异步路径分别定义：
 
-- 创建 sync / async session
-- 统一 rollback / close / 错误处理
-- 允许测试注入与替换
+- readable
+- writable
+- patchable
+- deletable
+- statement executor
+- transactional
+- model-bound composite protocol
 
-### UnitOfWork
+协议层是 public contract，concrete stores 是标准实现。
 
-职责：
+### Request objects
 
-- 定义事务边界
-- 适合 service 层组合多步写操作
-- 让事务语义从 repository 细节中抽离
+#### `Query[TModel]`
 
-### QuerySpec
+表达实体查询：
 
-建议承载：
+- filters
+- order
+- limit
+- offset
+- loader options
 
-- `filters`
-- `order_by`
-- `limit`
-- `offset`
-- `columns`
-- `options`
+#### `PageRequest`
 
-设计目标：
+表达分页请求：
 
-- 把查询意图建模为稳定对象
-- 提高组合性与可测试性
-- 保持与 SQLAlchemy expression 兼容
+- limit
+- offset
 
-### Result Types
+#### `Patch[TModel]`
 
-当前 API 已拆分为明确入口：
+表达字段更新：
 
-- `get(model, id)` -> `T | None`
-- `find_one(model, *filters, ...)` -> `T | None`
-- `find_many(model, *filters, ...)` -> `list[T]`
-- `paginate(model, *filters, ...)` -> `Page[T]`
-- `select_rows(model, spec)` -> `list[RowLike]`
+- `values`
+
+#### `ProjectionQuery[TRow]`
+
+表达显式投影：
+
+- columns
+- filters
+- order
+- loader options
+
+### Result types
+
+当前结果形态保持稳定：
+
+- `get(model, ident)` -> `TModel | None`
+- `find_one(model, *, query)` -> `TModel | None`
+- `find_many(model, *, query)` -> `list[TModel]`
+- `paginate(model, *, query, page)` -> `Page[TModel]`
+- `select_rows(model, *, projection)` -> `list[TRow]`
 - `select_scalars(statement)` -> `list[TScalar]`
-
-查询方法均支持内联参数（`*filters`, `order`, `limit`, `offset`），也可通过 `spec=QuerySpec(...)` 传入复杂查询。
+- `update(model, *, query, patch)` -> `int`
+- `delete(model, *, query)` -> `int`
 
 ### TypedStoreModel
 
-定位为模型侧一等能力入口：
+模型层规则如下：
 
-- 主路径为 `Model.bind(store)`
-- `bind()` 是纯函数式绑定，不在模型类上保存 store 状态
-- 绑定后的模型视图覆盖 insert、insert_many、get、find_one、find_many、paginate、update_fields、delete_where
-- 不承载复杂查询编排
-- 不让模型自行掌握事务策略
+- 继承 `TypedStoreModel` 的模型天然支持 `bind(store)`
+- 绑定后获得 bound model view
+- bound model view 只路由 capability protocol，不自己决定事务策略
 
 ## Implementation Status
 
 当前已实现：
 
-- engine 构造与 bundle
-- sync / async session provider
-- sync / async unit of work
-- `QuerySpec`
+- `SyncTypedStore` / `AsyncTypedStore` 的 protocol-first CRUD surface
+- `TypedStore` composition root
+- `TypedStoreModel.bind(store)` 与 bound model views
+- capability protocols
+- `Query` / `PageRequest` / `Patch` / `ProjectionQuery`
 - `Page`
-- `SyncTypedStore` — 一行初始化 `from_url`，内联 filter 参数，显式生命周期 API
-- `AsyncTypedStore` — 与 sync facade 完全对称
-- `TypedStore` 组合入口 — 通过 `.sync` / `.async_` 暴露 facade
-- `bound_model.py` — bind-first 模型视图
-- `TypedStoreModel` — `bind(store)` 一等能力入口
-- 同步与异步主路径测试
-- 事务回滚测试
-- 外部 session 复用测试
-- loader options 测试
-- examples（sync、async、repository、model store view、model mixin）
-- async repository / service example
-- bind-first model examples
-- 错误边界测试
-- examples smoke tests
-- CI workflow
-- Release workflow（GitHub Release -> build -> PyPI Trusted Publishing）
+- unit of work
+- examples、smoke tests、error boundary tests、protocol tests
+
+当前明确移除：
+
+- `QuerySpec`
+- 内联 filter public method signatures
+- 默认 store helpers
+- `store.of()` 和旧 `model_store.py`
+- `TypedStore` 直接 CRUD delegate
 
 ## Validation
 
@@ -216,37 +211,28 @@ flowchart TB
 
 | 改动类型 | 最低验证 |
 |---|---|
-| facade 行为 | `uv run pytest` |
-| transaction 语义 | rollback / external session tests |
-| loader options | eager load regression tests |
-| examples | 通过 `tests/test_examples.py` 做可执行 smoke 校验 |
-| error boundaries | 缺失 session factory、错误 store 绑定、投影分页误用测试 |
-| CI workflow | GitHub Actions 执行 ruff / ty / pytest 全链路检查 |
-| release workflow | GitHub Release 触发检查、构建 dist，并通过 Trusted Publisher 发布到 PyPI |
-
-当前最低验证命令：
-
-```bash
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check
-uv build
-```
+| protocol / store surface | `uv run pytest` |
+| 类型契约 | `uv run ty check` |
+| 静态风格 | `uv run ruff check .` |
+| 格式一致性 | `uv run ruff format --check .` |
+| 可发布性 | `uv build` |
 
 ## References
 
 - `AGENTS.md`
 - `docs/internal/workflow.md`
-- `README.md`
+- `docs/api-surface.md`
 - `docs/internal/progress.md`
+- `typed_store/protocols.py`
+- `typed_store/specs.py`
+- `typed_store/sync.py`
+- `typed_store/async_store.py`
+- `typed_store/model.py`
+- `typed_store/bound_model.py`
 - `examples/sync_basic.py`
 - `examples/async_basic.py`
-- `examples/repository_pattern.py`
-- `examples/async_repository_pattern.py`
-- `examples/model_store_view.py`
 - `examples/model_mixin.py`
+- `examples/model_store_view.py`
+- `tests/test_protocols.py`
+- `tests/test_specs.py`
 - `tests/test_error_boundaries.py`
-- `.github/workflows/ci.yml`
-- `.github/workflows/release.yml`
-- `docs/publishing.md`

@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from typed_store.async_store import AsyncTypedStore
-from typed_store.query_spec import FilterClause, OrderClause, QuerySpec
+from typed_store.protocols import AsyncModelBoundStoreProtocol, SyncModelBoundStoreProtocol
 from typed_store.results import Page
-from typed_store.sync import SyncTypedStore
+from typed_store.specs import PageRequest, Patch, Query
 
 
 class SyncBoundModelView[TModel]:
-    """Bound sync model operations routed through a SyncTypedStore."""
+    """Bound sync model operations routed through sync store capabilities."""
 
-    def __init__(self, model: type[TModel], store: SyncTypedStore[object]):
+    def __init__(self, model: type[TModel], store: SyncModelBoundStoreProtocol[object]):
         self._model = model
         self._store = store
 
@@ -46,90 +45,52 @@ class SyncBoundModelView[TModel]:
     def get(self, ident: object, *, session: Session | None = None) -> TModel | None:
         return cast(TModel | None, self._store.get(self._model, ident, session=session))
 
-    def find_one(
-        self,
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
-        order: OrderClause | tuple[OrderClause, ...] | None = None,
-        session: Session | None = None,
-    ) -> TModel | None:
-        return cast(
-            TModel | None,
-            self._store.find_one(self._model, *filters, spec=spec, order=order, session=session),
-        )
+    def find_one(self, *, query: Query[TModel], session: Session | None = None) -> TModel | None:
+        return cast(TModel | None, self._store.find_one(self._model, query=query, session=session))
 
-    def find_many(
-        self,
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
-        order: OrderClause | tuple[OrderClause, ...] | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        session: Session | None = None,
-    ) -> list[TModel]:
-        return cast(
-            list[TModel],
-            self._store.find_many(
-                self._model,
-                *filters,
-                spec=spec,
-                order=order,
-                limit=limit,
-                offset=offset,
-                session=session,
-            ),
-        )
+    def find_many(self, *, query: Query[TModel], session: Session | None = None) -> list[TModel]:
+        return cast(list[TModel], self._store.find_many(self._model, query=query, session=session))
+
+    def exists(self, *, query: Query[TModel], session: Session | None = None) -> bool:
+        return self._store.exists(self._model, query=query, session=session)
+
+    def count(self, *, query: Query[TModel], session: Session | None = None) -> int:
+        return self._store.count(self._model, query=query, session=session)
 
     def paginate(
         self,
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
-        order: OrderClause | tuple[OrderClause, ...] | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        *,
+        query: Query[TModel],
+        page: PageRequest,
         session: Session | None = None,
     ) -> Page[TModel]:
         return cast(
             Page[TModel],
-            self._store.paginate(
-                self._model,
-                *filters,
-                spec=spec,
-                order=order,
-                limit=limit,
-                offset=offset,
-                session=session,
-            ),
+            self._store.paginate(self._model, query=query, page=page, session=session),
         )
 
-    def update_fields(
+    def update(
         self,
-        values: Mapping[str, object],
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
+        *,
+        query: Query[TModel],
+        patch: Patch[TModel],
         session: Session | None = None,
         commit: bool = True,
     ) -> int:
-        return self._store.update_fields(
-            self._model, values, *filters, spec=spec, session=session, commit=commit
+        return self._store.update(
+            self._model, query=query, patch=patch, session=session, commit=commit
         )
 
-    def delete_where(
-        self,
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
-        session: Session | None = None,
-        commit: bool = True,
+    def delete(
+        self, *, query: Query[TModel], session: Session | None = None, commit: bool = True
     ) -> int:
-        return self._store.delete_where(
-            self._model, *filters, spec=spec, session=session, commit=commit
-        )
+        return self._store.delete(self._model, query=query, session=session, commit=commit)
 
 
 class AsyncBoundModelView[TModel]:
-    """Bound async model operations routed through an AsyncTypedStore."""
+    """Bound async model operations routed through async store capabilities."""
 
-    def __init__(self, model: type[TModel], store: AsyncTypedStore[object]):
+    def __init__(self, model: type[TModel], store: AsyncModelBoundStoreProtocol[object]):
         self._model = model
         self._store = store
 
@@ -162,86 +123,50 @@ class AsyncBoundModelView[TModel]:
         return cast(TModel | None, await self._store.get(self._model, ident, session=session))
 
     async def find_one(
-        self,
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
-        order: OrderClause | tuple[OrderClause, ...] | None = None,
-        session: AsyncSession | None = None,
+        self, *, query: Query[TModel], session: AsyncSession | None = None
     ) -> TModel | None:
         return cast(
-            TModel | None,
-            await self._store.find_one(
-                self._model,
-                *filters,
-                spec=spec,
-                order=order,
-                session=session,
-            ),
+            TModel | None, await self._store.find_one(self._model, query=query, session=session)
         )
 
     async def find_many(
-        self,
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
-        order: OrderClause | tuple[OrderClause, ...] | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        session: AsyncSession | None = None,
+        self, *, query: Query[TModel], session: AsyncSession | None = None
     ) -> list[TModel]:
         return cast(
-            list[TModel],
-            await self._store.find_many(
-                self._model,
-                *filters,
-                spec=spec,
-                order=order,
-                limit=limit,
-                offset=offset,
-                session=session,
-            ),
+            list[TModel], await self._store.find_many(self._model, query=query, session=session)
         )
+
+    async def exists(self, *, query: Query[TModel], session: AsyncSession | None = None) -> bool:
+        return await self._store.exists(self._model, query=query, session=session)
+
+    async def count(self, *, query: Query[TModel], session: AsyncSession | None = None) -> int:
+        return await self._store.count(self._model, query=query, session=session)
 
     async def paginate(
         self,
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
-        order: OrderClause | tuple[OrderClause, ...] | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        *,
+        query: Query[TModel],
+        page: PageRequest,
         session: AsyncSession | None = None,
     ) -> Page[TModel]:
         return cast(
             Page[TModel],
-            await self._store.paginate(
-                self._model,
-                *filters,
-                spec=spec,
-                order=order,
-                limit=limit,
-                offset=offset,
-                session=session,
-            ),
+            await self._store.paginate(self._model, query=query, page=page, session=session),
         )
 
-    async def update_fields(
+    async def update(
         self,
-        values: Mapping[str, object],
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
+        *,
+        query: Query[TModel],
+        patch: Patch[TModel],
         session: AsyncSession | None = None,
         commit: bool = True,
     ) -> int:
-        return await self._store.update_fields(
-            self._model, values, *filters, spec=spec, session=session, commit=commit
+        return await self._store.update(
+            self._model, query=query, patch=patch, session=session, commit=commit
         )
 
-    async def delete_where(
-        self,
-        *filters: FilterClause,
-        spec: QuerySpec[TModel] | None = None,
-        session: AsyncSession | None = None,
-        commit: bool = True,
+    async def delete(
+        self, *, query: Query[TModel], session: AsyncSession | None = None, commit: bool = True
     ) -> int:
-        return await self._store.delete_where(
-            self._model, *filters, spec=spec, session=session, commit=commit
-        )
+        return await self._store.delete(self._model, query=query, session=session, commit=commit)

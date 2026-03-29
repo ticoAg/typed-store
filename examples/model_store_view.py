@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import TypedStore, TypedStoreModel
+from typed_store import PageRequest, Query, TypedStore, TypedStoreModel
 
 
 class Base(DeclarativeBase):
@@ -33,16 +33,19 @@ users.insert(User(name="alice", role="admin"))
 users.insert(User(name="bob", role="member"))
 users.insert(User(name="carol", role="admin"))
 
-# 内联 filter + order
-admins = users.find_many(User.role == "admin", order=User.name.asc())
+# query object + order
+admins = users.find_many(query=Query[User]().where(User.role == "admin").order(User.name.asc()))
 print("admins:", [u.name for u in admins])
 
 # 分页
-page = users.paginate(User.role == "admin", limit=1, offset=0)
+page = users.paginate(
+    query=Query[User]().where(User.role == "admin"),
+    page=PageRequest(limit=1, offset=0),
+)
 print(f"page: {[u.name for u in page.items]} (total={page.total})")
 
 users.insert(User(name="dave", role="member"))
-members = users.find_many(User.role == "member", order=User.name.asc())
+members = users.find_many(query=Query[User]().where(User.role == "member").order(User.name.asc()))
 print("members:", [u.name for u in members])
 
 found = users.get(1)

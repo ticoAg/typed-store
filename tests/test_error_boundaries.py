@@ -6,12 +6,11 @@ import pytest
 
 import typed_store
 from tests.conftest import Widget
-from typed_store import AsyncTypedStore, QuerySpec, SessionProvider, SyncTypedStore
+from typed_store import AsyncTypedStore, ProjectionQuery, Query, SessionProvider, SyncTypedStore
 from typed_store.errors import (
     InvalidStoreBindingError,
     MissingAsyncSessionFactoryError,
     MissingSyncSessionFactoryError,
-    ProjectionPaginationError,
 )
 
 
@@ -20,7 +19,7 @@ def test_missing_sync_session_factory_raises():
     store = SyncTypedStore(provider)
 
     with pytest.raises(MissingSyncSessionFactoryError):
-        store.find_many(Widget)
+        store.find_many(Widget, query=Query[Widget]())
 
 
 @pytest.mark.asyncio
@@ -29,7 +28,7 @@ async def test_missing_async_session_factory_raises():
     store = AsyncTypedStore(provider)
 
     with pytest.raises(MissingAsyncSessionFactoryError):
-        await store.find_many(Widget)
+        await store.find_many(Widget, query=Query[Widget]())
 
 
 def test_bind_rejects_invalid_sync_store_binding():
@@ -55,16 +54,12 @@ def test_package_no_longer_exports_default_store_helpers():
     assert not hasattr(typed_store, "clear_default_store")
 
 
-def test_sync_paginate_rejects_projection(store):
-    spec = QuerySpec[Widget]().select_columns(Widget.id).paginate(limit=10, offset=0)
-
-    with pytest.raises(ProjectionPaginationError):
-        store.sync.paginate(Widget, spec=spec)
+def test_select_rows_requires_projection_keyword(store):
+    with pytest.raises(TypeError):
+        store.sync.select_rows(Widget, Query[Widget]())
 
 
 @pytest.mark.asyncio
-async def test_async_paginate_rejects_projection(store):
-    spec = QuerySpec[Widget]().select_columns(Widget.id).paginate(limit=10, offset=0)
-
-    with pytest.raises(ProjectionPaginationError):
-        await store.async_.paginate(Widget, spec=spec)
+async def test_async_select_rows_requires_projection_keyword(store):
+    with pytest.raises(TypeError):
+        await store.async_.select_rows(Widget, ProjectionQuery[tuple[int]](Widget.id))

@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import SyncTypedStore
+from typed_store import PageRequest, Query, SyncTypedStore
 
 
 class Base(DeclarativeBase):
@@ -26,5 +26,8 @@ assert store.engine is not None
 Base.metadata.create_all(store.engine)
 
 store.insert(User(name="alice"))
-rows = store.find_many(User, User.name == "alice")
+query = Query[User]().where(User.name == "alice")
+rows = store.find_many(User, query=query)
+page = store.paginate(User, query=query, page=PageRequest(limit=10, offset=0))
 print([row.name for row in rows])
+print(page.total)
