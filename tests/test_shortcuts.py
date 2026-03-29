@@ -1,4 +1,4 @@
-"""Tests for simplified API: from_url, inline filters, model-bound views, TypedStore delegation."""
+"""Tests for store shortcuts, bind-first model usage, and composition roots."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from typed_store import (
     SyncTypedStore,
     TypedStore,
 )
-from typed_store.model_store import AsyncModelStore, SyncModelStore
 
 # ---------------------------------------------------------------------------
 # from_url factory methods
@@ -65,8 +64,8 @@ class TestTypedStoreFromUrl:
         assert ts.engine is not None
         Base.metadata.create_all(ts.engine)
 
-        ts.insert(Widget(name="alice", category="a"))
-        rows = ts.find_many(Widget)
+        ts.sync.insert(Widget(name="alice", category="a"))
+        rows = ts.sync.find_many(Widget)
         assert len(rows) == 1
 
     def test_both_urls(self, tmp_path: Path):
@@ -77,6 +76,41 @@ class TestTypedStoreFromUrl:
         )
         assert ts.engine is not None
         assert ts.async_engine is not None
+
+
+class TestLifecycleApis:
+    def test_sync_store_close_is_idempotent(self, tmp_path: Path):
+        db = tmp_path / "lifecycle.sqlite"
+        store = SyncTypedStore.from_url(f"sqlite:///{db}")
+
+        store.close()
+        store.dispose()
+
+        assert store.engine is not None
+
+    @pytest.mark.asyncio
+    async def test_async_store_aclose_is_idempotent(self, tmp_path: Path):
+        db = tmp_path / "lifecycle.sqlite"
+        store = AsyncTypedStore.from_url(f"sqlite+aiosqlite:///{db}")
+
+        await store.aclose()
+        await store.dispose()
+
+        assert store.engine is not None
+
+    @pytest.mark.asyncio
+    async def test_typed_store_closes_both_engines(self, tmp_path: Path):
+        db = tmp_path / "typed-store.sqlite"
+        store = TypedStore.from_url(
+            f"sqlite:///{db}",
+            async_url=f"sqlite+aiosqlite:///{db}",
+        )
+
+        store.close()
+        await store.aclose()
+
+        assert store.engine is not None
+        assert store.async_engine is not None
 
 
 # ---------------------------------------------------------------------------
@@ -221,31 +255,31 @@ class TestAsyncInlineFilters:
 
 
 # ---------------------------------------------------------------------------
-# Model-bound sub-views (store.of)
+# Bind-first model views
 # ---------------------------------------------------------------------------
 
 
-class TestSyncModelStore:
-    def test_of_returns_model_store(self, store):
-        widgets = store.sync.of(Widget)
-        assert isinstance(widgets, SyncModelStore)
+class TestSyncModelBinding:
+    def test_bind_returns_bound_model_view(self, store):
+        widgets = Widget.bind(store.sync)
+        assert widgets.__class__.__name__ == "SyncBoundModelView"
 
     def test_insert_and_find_many(self, store):
-        widgets = store.sync.of(Widget)
+        widgets = Widget.bind(store.sync)
         widgets.insert(Widget(name="alice", category="a"))
         rows = widgets.find_many()
         assert len(rows) == 1
         assert rows[0].name == "alice"
 
     def test_get_by_id(self, store):
-        widgets = store.sync.of(Widget)
+        widgets = Widget.bind(store.sync)
         w = widgets.insert(Widget(name="alice", category="a"))
         found = widgets.get(w.id)
         assert found is not None
         assert found.name == "alice"
 
     def test_find_many_with_filter(self, store):
-        widgets = store.sync.of(Widget)
+        widgets = Widget.bind(store.sync)
         widgets.insert_many(
             [
                 Widget(name="a", category="x"),
@@ -256,13 +290,13 @@ class TestSyncModelStore:
         assert len(rows) == 1
 
     def test_find_one(self, store):
-        widgets = store.sync.of(Widget)
+        widgets = Widget.bind(store.sync)
         widgets.insert(Widget(name="alice", category="a"))
         found = widgets.find_one(Widget.name == "alice")
         assert found is not None
 
     def test_paginate(self, store):
-        widgets = store.sync.of(Widget)
+        widgets = Widget.bind(store.sync)
         widgets.insert_many(
             [
                 Widget(name="a", category="x"),
@@ -273,7 +307,7 @@ class TestSyncModelStore:
         assert page.total == 2
 
     def test_delete_where(self, store):
-        widgets = store.sync.of(Widget)
+        widgets = Widget.bind(store.sync)
         widgets.insert_many(
             [
                 Widget(name="a", category="del"),
@@ -285,21 +319,21 @@ class TestSyncModelStore:
         assert len(widgets.find_many()) == 1
 
     def test_update_fields(self, store):
-        widgets = store.sync.of(Widget)
+        widgets = Widget.bind(store.sync)
         widgets.insert(Widget(name="a", category="old"))
         updated = widgets.update_fields({"category": "new"}, Widget.name == "a")
         assert updated == 1
 
 
-class TestAsyncModelStore:
+class TestAsyncModelBinding:
     @pytest.mark.asyncio
-    async def test_of_returns_model_store(self, store):
-        widgets = store.async_.of(Widget)
-        assert isinstance(widgets, AsyncModelStore)
+    async def test_bind_returns_bound_model_view(self, store):
+        widgets = Widget.bind(store.async_)
+        assert widgets.__class__.__name__ == "AsyncBoundModelView"
 
     @pytest.mark.asyncio
     async def test_insert_and_find_many(self, store):
-        widgets = store.async_.of(Widget)
+        widgets = Widget.bind(store.async_)
         await widgets.insert(Widget(name="alice", category="a"))
         rows = await widgets.find_many()
         assert len(rows) == 1
@@ -307,7 +341,7 @@ class TestAsyncModelStore:
 
     @pytest.mark.asyncio
     async def test_get_by_id(self, store):
-        widgets = store.async_.of(Widget)
+        widgets = Widget.bind(store.async_)
         w = await widgets.insert(Widget(name="alice", category="a"))
         found = await widgets.get(w.id)
         assert found is not None
@@ -315,64 +349,20 @@ class TestAsyncModelStore:
 
 
 # ---------------------------------------------------------------------------
-# TypedStore sync delegation
+# TypedStore composition root
 # ---------------------------------------------------------------------------
 
 
-class TestTypedStoreDelegation:
-    def test_insert_and_find_many(self, store):
-        store.insert(Widget(name="alice", category="a"))
-        rows = store.find_many(Widget)
-        assert len(rows) == 1
+class TestTypedStoreCompositionRoot:
+    def test_exposes_sync_and_async_stores(self, store):
+        assert isinstance(store.sync, SyncTypedStore)
+        assert isinstance(store.async_, AsyncTypedStore)
 
-    def test_find_many_with_filter(self, store):
-        store.insert_many(
-            [
-                Widget(name="a", category="x"),
-                Widget(name="b", category="y"),
-            ]
-        )
-        rows = store.find_many(Widget, Widget.category == "x")
-        assert len(rows) == 1
+    def test_has_no_direct_sync_crud_delegate(self, store):
+        assert not hasattr(store, "find_many")
+        assert not hasattr(store, "insert")
 
-    def test_get_by_id(self, store):
-        w = store.insert(Widget(name="alice", category="a"))
-        found = store.get(Widget, w.id)
-        assert found is not None
-        assert found.name == "alice"
-
-    def test_find_one(self, store):
-        store.insert(Widget(name="alice", category="a"))
-        found = store.find_one(Widget, Widget.name == "alice")
-        assert found is not None
-
-    def test_paginate(self, store):
-        store.insert_many(
-            [
-                Widget(name="a", category="x"),
-                Widget(name="b", category="x"),
-            ]
-        )
-        page = store.paginate(Widget, Widget.category == "x", limit=10, offset=0)
-        assert page.total == 2
-
-    def test_delete_where(self, store):
-        store.insert_many(
-            [
-                Widget(name="a", category="del"),
-                Widget(name="b", category="keep"),
-            ]
-        )
-        deleted = store.delete_where(Widget, Widget.category == "del")
-        assert deleted == 1
-
-    def test_update_fields(self, store):
-        store.insert(Widget(name="a", category="old"))
-        updated = store.update_fields(Widget, {"category": "new"}, Widget.name == "a")
-        assert updated == 1
-
-    def test_of_returns_sync_model_store(self, store):
-        widgets = store.of(Widget)
-        assert isinstance(widgets, SyncModelStore)
-        widgets.insert(Widget(name="via-of", category="z"))
-        assert len(widgets.find_many()) == 1
+    def test_sync_and_async_stores_have_no_model_of_shortcut(self, store):
+        assert not hasattr(store.sync, "of")
+        assert not hasattr(store.async_, "of")
+        assert not hasattr(store, "of")

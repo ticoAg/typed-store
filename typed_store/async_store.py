@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
@@ -15,9 +15,6 @@ from typed_store.query_spec import FilterClause, OrderClause, QuerySpec
 from typed_store.results import Page
 from typed_store.session import SessionProvider
 from typed_store.uow import AsyncUnitOfWork
-
-if TYPE_CHECKING:
-    from typed_store.model_store import AsyncModelStore
 
 
 class AsyncTypedStore[TModel]:
@@ -49,15 +46,18 @@ class AsyncTypedStore[TModel]:
             return self._bundle.async_engine
         return None
 
-    def of[M](self, model: type[M]) -> AsyncModelStore[M]:
-        """Return a model-bound view that eliminates repeated model arguments."""
-        from typed_store.model_store import AsyncModelStore
-
-        return AsyncModelStore(self, model)
-
     def unit_of_work(self, *, auto_commit: bool = True) -> AsyncUnitOfWork:
         """Create an asynchronous unit of work."""
         return AsyncUnitOfWork(self.provider, auto_commit=auto_commit)
+
+    async def dispose(self) -> None:
+        """Dispose the underlying async engine if available."""
+        if self.engine is not None:
+            await self.engine.dispose()
+
+    async def aclose(self) -> None:
+        """Close async store resources."""
+        await self.dispose()
 
     async def insert(
         self,

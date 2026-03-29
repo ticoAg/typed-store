@@ -4,7 +4,7 @@
 - Owner: mixed
 - Spec: docs/design-spec.md
 - Code SSOT: `typed_store/`, `tests/`, `examples/`, `pyproject.toml`
-- Last Updated: 2026-03-13
+- Last Updated: 2026-03-29
 
 ## Goal
 
@@ -14,9 +14,10 @@
 ## Current State
 
 - SDK 首版代码已落地，主包位于 `typed_store/`
-- public API 已收敛为显式 `SyncTypedStore` / `AsyncTypedStore`
-- 已移除旧兼容层方向
-- examples、README、主路径测试、错误边界测试、smoke 测试和进阶测试已补齐
+- public API 已进一步收口为显式 `SyncTypedStore` / `AsyncTypedStore` + `Model.bind(store)`
+- `TypedStore` 已降级为 composition root，仅保留 `.sync` / `.async_`
+- 已移除默认 store helpers、`TypedStore` sync delegate 与 `store.of()` 模型快捷入口
+- examples、README、主路径测试、错误边界测试、smoke 测试和进阶测试已切换到 bind-first 心智模型
 
 ## Done
 
@@ -54,13 +55,20 @@
 - 运行 `uv run pytest`，当前结果：21 passed
 - 运行 `uv run ruff check .` / `uv run ruff format --check .` / `uv run ty check`，当前结果：全部通过
 - 运行 `uv build`，确认当前包可生成 sdist 和 wheel
+- 新增 `typed_store/bound_model.py`
+- 新增 `tests/test_bound_model.py`
+- 为 `SyncTypedStore` / `AsyncTypedStore` / `TypedStore` 增加显式生命周期 API
+- 将 `TypedStoreModel` 改为 bind-first 纯函数式入口
+- 移除全局默认 store helpers 与 `TypedStore` sync delegate
+- 移除 `store.of()` 模型快捷入口
+- 重写 `examples/model_mixin.py` / `examples/model_store_view.py` 为 bind-first 示例
 
 ## Next
 
+- 继续推进 capability protocol 抽象
+- 拆分 `QuerySpec` 为更小的 request/spec 对象
+- 评估 SQL 级 bulk update/delete 语义
 - 配置并验证仓库侧 Trusted Publisher（PyPI / TestPyPI）
-- 评估是否继续收紧 SQLAlchemy 相关输入类型（例如 statement / row projection）
-- 评估是否为 CI 增加多 Python 版本矩阵
-- 评估是否补充手动触发发布或预发布通道
 
 ## Evidence
 
@@ -93,7 +101,6 @@
 
 ## Risks / Blockers
 
-- `TypedStoreModel` 采用全局默认 store 绑定，适合语法糖场景，但不应成为唯一使用方式
-- 当前 API 已显式拆分 sync / async facade，但是否还需要进一步收窄 public surface，后续可继续评估
-- examples 当前是最小演示，若要面向外部使用，还需要补更完整的 repository / transaction 场景示例
+- bind-first 主路径已落地，但 capability protocol 与 spec protocol 仍未抽出
+- examples 当前仍偏最小演示，若要面向外部使用，还需要补更完整的 repository / transaction 场景示例
 - release workflow 依赖 PyPI Trusted Publisher 和 GitHub environment 预配置；未配置前无法真正完成发布

@@ -12,7 +12,8 @@
 
 - `SyncTypedStore` — 同步代码路径的主入口
 - `AsyncTypedStore` — 异步代码路径的主入口
-- `TypedStore` — bundle，同时暴露 `.sync` / `.async_`，也可直接当 sync store 用
+- `TypedStoreModel.bind(store)` — 模型优先的主绑定入口
+- `TypedStore` — composition root，同时暴露 `.sync` / `.async_`
 
 ## 2. `SyncTypedStore`
 
@@ -26,7 +27,7 @@
 
 - `SyncTypedStore.from_url(url, *, echo=False, **engine_options)` — 一行初始化
 - `.engine` — 返回底层 `Engine | None`
-- `.of(model)` — 返回 `SyncModelStore[M]`，省去重复传 model 参数
+- `.close()` / `.dispose()` — 显式释放 sync 资源
 - `.unit_of_work(*, auto_commit=True)` — 创建 `UnitOfWork`
 
 ### 数据操作方法
@@ -71,7 +72,7 @@ store.paginate(User, User.role == "admin", limit=10, offset=0)
 
 - `AsyncTypedStore.from_url(url, *, echo=False, **engine_options)` — 一行初始化
 - `.engine` — 返回底层 `AsyncEngine | None`
-- `.of(model)` — 返回 `AsyncModelStore[M]`
+- `.aclose()` / `.dispose()` — 显式释放 async 资源
 - `.unit_of_work(*, auto_commit=True)` — 创建 `AsyncUnitOfWork`
 
 ### 数据操作方法
@@ -107,8 +108,8 @@ await store.find_many(User, User.role == "admin")
 职责：
 
 - 同时暴露 `.sync` 和 `.async_` facade
-- 可直接当 sync store 使用（所有 sync 方法均已委托）
-- 异步操作通过 `.async_` 明确访问
+- 作为 sync / async store 的组合入口
+- 不再作为直接 CRUD facade 使用
 
 ### 工厂方法与属性
 
@@ -117,17 +118,9 @@ await store.find_many(User, User.role == "admin")
 - `.async_engine` — 返回底层 `AsyncEngine | None`
 - `.sync` — `SyncTypedStore` 实例
 - `.async_` — `AsyncTypedStore` 实例
-- `.of(model)` — 返回 `SyncModelStore[M]`（委托到 `.sync`）
+- `.close()` / `.dispose()` / `.aclose()` — 显式释放资源
 - `.unit_of_work(*, auto_commit=True)` — 创建 sync `UnitOfWork`
 - `.async_unit_of_work(*, auto_commit=True)` — 创建 `AsyncUnitOfWork`
-
-### Sync 委托方法
-
-以下方法直接委托到 `.sync`，签名与 `SyncTypedStore` 一致：
-
-- `insert`, `insert_many`, `get`, `find_one`, `find_many`, `paginate`
-- `update_fields`, `delete_where`
-- `select_rows`, `select_scalars`
 
 ### 使用示例
 
@@ -136,24 +129,24 @@ from typed_store import TypedStore
 
 ts = TypedStore.from_url("sqlite:///app.db", async_url="sqlite+aiosqlite:///app.db")
 
-# 直接当 sync store 用
-ts.find_many(User)
-ts.insert(User(name="alice"))
+# 显式访问 sync facade
+ts.sync.find_many(User)
+ts.sync.insert(User(name="alice"))
 
 # 异步明确走 .async_
 await ts.async_.find_many(User)
 ```
 
-## 5. `SyncModelStore` / `AsyncModelStore`
+## 5. `TypedStoreModel.bind(store)`
 
 职责：
 
-- Model-bound 子视图，省去每次调用都传 model 参数
-- 通过 `store.of(Model)` 创建
+- 为模型提供显式、纯函数式的 store 绑定入口
+- 通过 `Model.bind(store)` 创建 bound model view
 
-### 方法
+### Bound model view 方法
 
-`SyncModelStore[TModel]` 和 `AsyncModelStore[TModel]` 提供完全对称的方法：
+`Model.bind(store)` 返回的 bound model view 提供对称的 sync / async 方法：
 
 - `insert(entity, *, session=None, commit=True, refresh=False)` → `TModel`
 - `insert_many(entities, *, session=None, commit=True)` → `list[TModel]`
@@ -167,7 +160,10 @@ await ts.async_.find_many(User)
 ### 使用示例
 
 ```python
-users = store.of(User)
+class User(Base, TypedStoreModel):
+    ...
+
+users = User.bind(store)
 users.insert(User(name="alice"))
 users.find_many(User.role == "admin")
 users.get(1)
@@ -212,46 +208,31 @@ store.find_many(User, spec=spec)
 
 职责：
 
-- 可选的 Active Record 风格语法糖
-- 让简单模型可以直接通过 store 做 CRUD
+- 为模型提供 bind-first 能力
+- 让模型通过显式 store 绑定获得 CRUD 入口
 
-### 绑定方法
+### 绑定方法与主路径
 
-- `set_default_store(store)` — 全局默认 store
-- `cls.use_store(store)` — 绑定到特定 model class
-- `cls.store()` — 解析当前绑定的 store
-
-### 实例方法
-
-- `insert(*, store=None, session=None, commit=True)` / `ainsert(...)` — 插入自身
-- `insert_many(entities, *, ...)` / `ainsert_many(...)` — 批量插入
-
-### 类方法
-
-- `get(ident, *, ...)` / `aget(...)` — 按主键查询
-- `find_one(*filters, spec=None, order=None, ...)` / `afind_one(...)` — 查询单条
-- `find_many(*filters, spec=None, order=None, limit=None, offset=None, ...)` / `afind_many(...)` — 查询多条
-- `paginate(*filters, spec=None, order=None, limit=None, offset=None, ...)` / `apaginate(...)` — 分页
-- `update_fields(values, *filters, spec=None, ...)` / `aupdate_fields(...)` — 批量更新字段
-- `delete_where(*filters, spec=None, ...)` / `adelete_where(...)` — 条件删除
+- `cls.bind(store)` — 返回和该模型绑定的 bound model view
 
 ### 使用示例
 
 ```python
-from typed_store import TypedStoreModel, set_default_store
+from typed_store import SyncTypedStore, TypedStoreModel
 
-set_default_store(store)
+store = SyncTypedStore.from_url("sqlite:///app.db")
 
 class User(Base, TypedStoreModel):
     ...
 
-User(name="alice").insert()
-items = User.find_many(User.role == "admin")
+users = User.bind(store)
+users.insert(User(name="alice"))
+items = users.find_many(User.role == "admin")
 ```
 
-适用场景：简单模型操作、演示与小型项目
+适用场景：模型优先的数据访问、显式 store 绑定、需要保持协议边界清晰的应用
 
-不推荐的场景：复杂 repository 查询编排、跨多个实体的 service 事务协调
+不推荐的场景：依赖隐式全局状态的 Active Record 设计
 
 ## 8. `SessionProvider`
 
@@ -287,7 +268,6 @@ items = User.find_many(User.role == "admin")
 - `TypedStoreConfigurationError` — 配置错误基类
 - `MissingSyncSessionFactoryError` — 缺少 sync session factory
 - `MissingAsyncSessionFactoryError` — 缺少 async session factory
-- `MissingGlobalStoreError` — TypedStoreModel 未配置默认 store
 - `InvalidStoreBindingError` — model store 绑定类型不匹配
 - `ProjectionPaginationError` — 投影查询误用 `paginate()`
 
@@ -307,7 +287,7 @@ items = User.find_many(User.role == "admin")
 
 ### Scenario D: 快速原型
 
-优先使用：`TypedStoreModel` mixin + `set_default_store()`
+优先使用：`TypedStoreModel` mixin + `Model.bind(store)`
 
 ### Scenario E: complex domain logic
 

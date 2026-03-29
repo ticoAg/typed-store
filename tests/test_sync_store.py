@@ -103,6 +103,7 @@ def test_sync_loader_options_and_model_mixin(store):
     assert loaded is not None
     assert [member.name for member in loaded.members] == ["alice", "bob"]
 
-    Widget(name="mixin", category="m").insert()
-    mixin_rows = Widget.find_many(Widget.category == "m")
+    widgets = Widget.bind(store.sync)
+    widgets.insert(Widget(name="mixin", category="m"))
+    mixin_rows = widgets.find_many(Widget.category == "m")
     assert len(mixin_rows) == 1

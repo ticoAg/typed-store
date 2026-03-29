@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
@@ -15,9 +15,6 @@ from typed_store.query_spec import FilterClause, OrderClause, QuerySpec
 from typed_store.results import Page
 from typed_store.session import SessionProvider
 from typed_store.uow import UnitOfWork
-
-if TYPE_CHECKING:
-    from typed_store.model_store import SyncModelStore
 
 
 class SyncTypedStore[TModel]:
@@ -49,15 +46,18 @@ class SyncTypedStore[TModel]:
             return self._bundle.sync_engine
         return None
 
-    def of[M](self, model: type[M]) -> SyncModelStore[M]:
-        """Return a model-bound view that eliminates repeated model arguments."""
-        from typed_store.model_store import SyncModelStore
-
-        return SyncModelStore(self, model)
-
     def unit_of_work(self, *, auto_commit: bool = True) -> UnitOfWork:
         """Create a synchronous unit of work."""
         return UnitOfWork(self.provider, auto_commit=auto_commit)
+
+    def dispose(self) -> None:
+        """Dispose the underlying sync engine if available."""
+        if self.engine is not None:
+            self.engine.dispose()
+
+    def close(self) -> None:
+        """Close sync store resources."""
+        self.dispose()
 
     def insert(
         self,

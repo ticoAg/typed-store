@@ -121,9 +121,9 @@ flowchart TB
 说明：
 
 - `sync.py` 与 `async_store.py` 是正式 facade
-- `store.py` 提供组合入口 `TypedStore`，也可直接当 sync store 用
-- `model_store.py` 提供 `SyncModelStore` / `AsyncModelStore` model-bound 子视图
-- `model.py` 提供可选 mixin，不作为唯一数据访问入口
+- `store.py` 提供组合入口 `TypedStore`，仅负责暴露 `.sync` / `.async_`
+- `model.py` 提供 bind-first 模型能力入口
+- `bound_model.py` 提供绑定后的模型视图
 - `results.py` 用于消除”一个 API 多种返回结构”的问题
 
 ## Core Concepts
@@ -174,22 +174,15 @@ flowchart TB
 
 查询方法均支持内联参数（`*filters`, `order`, `limit`, `offset`），也可通过 `spec=QuerySpec(...)` 传入复杂查询。
 
-### SyncModelStore / AsyncModelStore
-
-Model-bound 子视图，通过 `store.of(Model)` 创建：
-
-- 省去每次调用都传 model 参数
-- 完全对称的 sync / async 方法
-- 覆盖 insert、insert_many、get、find_one、find_many、paginate、update_fields、delete_where
-
 ### TypedStoreModel
 
-定位为可选语法糖：
+定位为模型侧一等能力入口：
 
-- 完整的 sync / async 方法对：`insert` / `ainsert`、`insert_many` / `ainsert_many`、`get` / `aget`、`find_one` / `afind_one`、`find_many` / `afind_many`、`paginate` / `apaginate`、`update_fields` / `aupdate_fields`、`delete_where` / `adelete_where`
+- 主路径为 `Model.bind(store)`
+- `bind()` 是纯函数式绑定，不在模型类上保存 store 状态
+- 绑定后的模型视图覆盖 insert、insert_many、get、find_one、find_many、paginate、update_fields、delete_where
 - 不承载复杂查询编排
 - 不让模型自行掌握事务策略
-- 通过默认 store 或显式 store 解析 sync / async facade
 
 ## Implementation Status
 
@@ -200,17 +193,18 @@ Model-bound 子视图，通过 `store.of(Model)` 创建：
 - sync / async unit of work
 - `QuerySpec`
 - `Page`
-- `SyncTypedStore` — 一行初始化 `from_url`，内联 filter 参数，`of()` model-bound 子视图
+- `SyncTypedStore` — 一行初始化 `from_url`，内联 filter 参数，显式生命周期 API
 - `AsyncTypedStore` — 与 sync facade 完全对称
-- `TypedStore` 组合入口 — 可直接当 sync store 用，暴露 sync 委托方法
-- `SyncModelStore` / `AsyncModelStore` — model-bound 子视图
-- `TypedStoreModel` — 完整 sync / async 方法对（含 insert_many / update_fields）
+- `TypedStore` 组合入口 — 通过 `.sync` / `.async_` 暴露 facade
+- `bound_model.py` — bind-first 模型视图
+- `TypedStoreModel` — `bind(store)` 一等能力入口
 - 同步与异步主路径测试
 - 事务回滚测试
 - 外部 session 复用测试
 - loader options 测试
 - examples（sync、async、repository、model store view、model mixin）
 - async repository / service example
+- bind-first model examples
 - 错误边界测试
 - examples smoke tests
 - CI workflow

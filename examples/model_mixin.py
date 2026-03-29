@@ -1,11 +1,11 @@
-"""TypedStoreModel Active Record mixin example."""
+"""TypedStoreModel bind-first example."""
 
 from __future__ import annotations
 
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from typed_store import SyncTypedStore, TypedStoreModel, clear_default_store, set_default_store
+from typed_store import SyncTypedStore, TypedStoreModel
 
 
 class Base(DeclarativeBase):
@@ -26,43 +26,39 @@ store = SyncTypedStore.from_url("sqlite:///model_mixin_example.sqlite3")
 assert store.engine is not None
 Base.metadata.create_all(store.engine)
 
-# 绑定全局默认 store
-set_default_store(store)
+users = User.bind(store)
 
-# 实例方法: insert
-User(name="alice", role="admin").insert()
-User(name="bob", role="member").insert()
-User(name="carol", role="admin").insert()
+# 绑定视图: insert / insert_many
+users.insert(User(name="alice", role="admin"))
+users.insert(User(name="bob", role="member"))
+users.insert(User(name="carol", role="admin"))
 
-# 类方法: insert_many
-User.insert_many([User(name="dave", role="member"), User(name="eve", role="admin")])
+users.insert_many([User(name="dave", role="member"), User(name="eve", role="admin")])
 
-# 类方法: find_many (内联 filter + order)
-admins = User.find_many(User.role == "admin", order=User.name.asc())
+# 绑定视图: find_many (内联 filter + order)
+admins = users.find_many(User.role == "admin", order=User.name.asc())
 print("admins:", [u.name for u in admins])
 
-# 类方法: find_one
-first = User.find_one(User.name == "alice")
+# 绑定视图: find_one
+first = users.find_one(User.name == "alice")
 print("find_one:", first.name if first else None)
 
-# 类方法: get (按主键)
-user = User.get(1)
+# 绑定视图: get (按主键)
+user = users.get(1)
 print("get(1):", user.name if user else None)
 
-# 类方法: paginate
-page = User.paginate(User.role == "admin", limit=2, offset=0)
+# 绑定视图: paginate
+page = users.paginate(User.role == "admin", limit=2, offset=0)
 print(f"page: {[u.name for u in page.items]} (total={page.total})")
 
-# 类方法: update_fields
-updated = User.update_fields({"role": "superadmin"}, User.name == "alice")
+# 绑定视图: update_fields
+updated = users.update_fields({"role": "superadmin"}, User.name == "alice")
 print(f"updated {updated} row(s)")
-alice = User.find_one(User.name == "alice")
+alice = users.find_one(User.name == "alice")
 print(f"alice role: {alice.role if alice else None}")
 
-# 类方法: delete_where
-deleted = User.delete_where(User.role == "member")
+# 绑定视图: delete_where
+deleted = users.delete_where(User.role == "member")
 print(f"deleted {deleted} member(s)")
-remaining = User.find_many()
+remaining = users.find_many()
 print("remaining:", [u.name for u in remaining])
-
-clear_default_store()

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from typed_store.engine import EngineConfig, build_engine_bundle
-from typed_store.model import TypedStoreModel, clear_default_store, set_default_store
+from typed_store.model import TypedStoreModel
 from typed_store.session import SessionProvider
 from typed_store.store import TypedStore
 
@@ -86,7 +86,4 @@ def provider(engine_bundle):
 
 @pytest.fixture
 def store(provider: SessionProvider):
-    typed_store = TypedStore(provider)
-    set_default_store(typed_store)
-    yield typed_store
-    clear_default_store()
+    return TypedStore(provider)

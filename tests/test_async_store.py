@@ -52,8 +52,9 @@ async def test_async_select_rows_update_delete_and_mixin(store):
     deleted = await store.async_.delete_where(Widget, Widget.category == "changed")
     assert deleted == 1
 
-    await Widget(name="mixin-async", category="ma").ainsert()
-    items = await Widget.afind_many(Widget.category == "ma")
+    widgets = Widget.bind(store.async_)
+    await widgets.insert(Widget(name="mixin-async", category="ma"))
+    items = await widgets.find_many(Widget.category == "ma")
     assert len(items) == 1
 
 
