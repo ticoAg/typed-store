@@ -61,6 +61,38 @@ async def test_async_select_rows_update_delete_and_mixin(store):
 
 
 @pytest.mark.asyncio
+async def test_async_bulk_update_and_delete(store):
+    await store.async_.insert_many(
+        [
+            Widget(name="a", category="bulk"),
+            Widget(name="b", category="bulk"),
+            Widget(name="c", category="keep"),
+        ]
+    )
+
+    updated = await store.async_.bulk_update(
+        Widget,
+        query=Query[Widget]().where(Widget.category == "bulk"),
+        patch=Patch[Widget]({"category": "bulk-updated"}),
+    )
+    assert updated == 2
+
+    assert (
+        await store.async_.count(
+            Widget,
+            query=Query[Widget]().where(Widget.category == "bulk-updated"),
+        )
+        == 2
+    )
+
+    deleted = await store.async_.bulk_delete(
+        Widget,
+        query=Query[Widget]().where(Widget.category == "bulk-updated"),
+    )
+    assert deleted == 2
+
+
+@pytest.mark.asyncio
 async def test_async_unit_of_work_commit_and_rollback(store):
     async with store.async_.unit_of_work() as uow:
         assert uow.session is not None

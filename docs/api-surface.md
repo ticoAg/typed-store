@@ -58,12 +58,15 @@
 - `ReadableStoreProtocol[TModel]`
 - `WritableStoreProtocol[TModel]`
 - `PatchableStoreProtocol[TModel]`
+- `BulkPatchableStoreProtocol[TModel]`
 - `DeletableStoreProtocol[TModel]`
+- `BulkDeletableStoreProtocol[TModel]`
 - `StatementExecutorProtocol`
 - `TransactionalStoreProtocol`
 - `SyncModelBoundStoreProtocol[TModel]`
 
 这些协议的意义是定义“这个对象能做什么”，而不是要求使用者必须直接实例化协议本身。
+这些对象共同构成 `v1.0` 的稳定同步 public contract。
 
 ## 4. Async Capability Protocols
 
@@ -72,10 +75,14 @@
 - `AsyncReadableStoreProtocol[TModel]`
 - `AsyncWritableStoreProtocol[TModel]`
 - `AsyncPatchableStoreProtocol[TModel]`
+- `AsyncBulkPatchableStoreProtocol[TModel]`
 - `AsyncDeletableStoreProtocol[TModel]`
+- `AsyncBulkDeletableStoreProtocol[TModel]`
 - `AsyncStatementExecutorProtocol`
 - `AsyncTransactionalStoreProtocol`
 - `AsyncModelBoundStoreProtocol[TModel]`
+
+这些对象共同构成 `v1.0` 的稳定异步 public contract。
 
 ## 5. `SyncTypedStore`
 
@@ -100,7 +107,9 @@
 - `count(model, *, query, session=None) -> int`
 - `paginate(model, *, query, page, session=None) -> Page[TModel]`
 - `update(model, *, query, patch, session=None, commit=True) -> int`
+- `bulk_update(model, *, query, patch, session=None, commit=True) -> int`
 - `delete(model, *, query, session=None, commit=True) -> int`
+- `bulk_delete(model, *, query, session=None, commit=True) -> int`
 - `select_rows(model, *, projection, session=None) -> list[TRow]`
 - `select_scalars(statement, *, session=None) -> list[TScalar]`
 
@@ -210,7 +219,9 @@ await ts.async_.find_many(User, query=Query[User]())
 - `count`
 - `paginate`
 - `update`
+- `bulk_update`
 - `delete`
+- `bulk_delete`
 
 ### Example
 
@@ -240,6 +251,18 @@ page = users.paginate(
 
 - 缺失 sync / async session factory
 - `bind()` 传入不满足协议的 store
+- bulk mutation 使用了不支持的 `Query` 形态
 - 调用签名明显错误，例如遗漏 `projection=` 这样的关键字参数
 
 数据本身的业务校验不由 `TypedStore` 重复承担，默认依赖边界层与静态类型系统。
+
+## 10. Stable v1.0 Surface
+
+以下对象属于 `v1.0` 稳定 public API：
+
+- stores: `SyncTypedStore`, `AsyncTypedStore`, `TypedStore`
+- models: `TypedStoreModel`, `SyncBoundModelView`, `AsyncBoundModelView`
+- request objects: `Query`, `PageRequest`, `Patch`, `ProjectionQuery`
+- results: `Page`
+- protocols: readable / writable / patchable / bulk / deletable / statement / transactional variants
+- support objects: `UnitOfWork`, `AsyncUnitOfWork`, `SessionProvider`

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from tests.conftest import Widget
-from typed_store import PageRequest, Query
+from typed_store import PageRequest, Patch, Query
 from typed_store.bound_model import AsyncBoundModelView, SyncBoundModelView
 
 
@@ -61,3 +61,42 @@ def test_sync_bound_model_view_supports_page_requests(store):
 
     assert page.total == 2
     assert [item.name for item in page.items] == ["page-a"]
+
+
+def test_sync_bound_model_view_bulk_methods(store):
+    widgets = Widget.bind(store.sync)
+    widgets.insert_many(
+        [
+            Widget(name="a", category="bound-bulk"),
+            Widget(name="b", category="bound-bulk"),
+        ]
+    )
+
+    updated = widgets.bulk_update(
+        query=Query[Widget]().where(Widget.category == "bound-bulk"),
+        patch=Patch[Widget]({"category": "done"}),
+    )
+    deleted = widgets.bulk_delete(query=Query[Widget]().where(Widget.category == "done"))
+
+    assert updated == 2
+    assert deleted == 2
+
+
+@pytest.mark.asyncio
+async def test_async_bound_model_view_bulk_methods(store):
+    widgets = Widget.bind(store.async_)
+    await widgets.insert_many(
+        [
+            Widget(name="a", category="async-bound-bulk"),
+            Widget(name="b", category="async-bound-bulk"),
+        ]
+    )
+
+    updated = await widgets.bulk_update(
+        query=Query[Widget]().where(Widget.category == "async-bound-bulk"),
+        patch=Patch[Widget]({"category": "done"}),
+    )
+    deleted = await widgets.bulk_delete(query=Query[Widget]().where(Widget.category == "done"))
+
+    assert updated == 2
+    assert deleted == 2

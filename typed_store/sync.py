@@ -6,6 +6,9 @@ from collections.abc import Sequence
 from typing import Any, cast
 
 from sqlalchemy import Engine, func, select
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import update as sa_update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import Executable
 
@@ -266,6 +269,32 @@ class SyncTypedStore[TModel](
                 managed_session.commit()
             return len(items)
 
+    def bulk_update(
+        self,
+        model: type[TModel],
+        *,
+        query: Query[TModel],
+        patch: Patch[TModel],
+        session: Session | None = None,
+        commit: bool = True,
+    ) -> int:
+        """Update matching rows with a SQL bulk statement."""
+        query.assert_bulk_compatible()
+        stmt = sa_update(model).values(**dict(patch.values))
+        if query.filters:
+            stmt = stmt.where(*query.filters)
+        if session is not None:
+            result = session.execute(stmt)
+            if commit:
+                session.commit()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
+
+        with self.provider.get_session() as managed_session:
+            result = managed_session.execute(stmt)
+            if commit:
+                managed_session.commit()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
+
     def delete(
         self,
         model: type[TModel],
@@ -290,3 +319,28 @@ class SyncTypedStore[TModel](
             if commit:
                 managed_session.commit()
             return len(items)
+
+    def bulk_delete(
+        self,
+        model: type[TModel],
+        *,
+        query: Query[TModel],
+        session: Session | None = None,
+        commit: bool = True,
+    ) -> int:
+        """Delete matching rows with a SQL bulk statement."""
+        query.assert_bulk_compatible()
+        stmt = sa_delete(model)
+        if query.filters:
+            stmt = stmt.where(*query.filters)
+        if session is not None:
+            result = session.execute(stmt)
+            if commit:
+                session.commit()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
+
+        with self.provider.get_session() as managed_session:
+            result = managed_session.execute(stmt)
+            if commit:
+                managed_session.commit()
+            return int(cast(CursorResult[Any], result).rowcount or 0)

@@ -60,6 +60,37 @@ def test_sync_update_delete_and_custom_scalars(store):
     assert store.sync.select_scalars(select(func.count()).select_from(Widget))[0] == 1
 
 
+def test_sync_bulk_update_and_delete(store):
+    store.sync.insert_many(
+        [
+            Widget(name="a", category="bulk"),
+            Widget(name="b", category="bulk"),
+            Widget(name="c", category="keep"),
+        ]
+    )
+
+    updated = store.sync.bulk_update(
+        Widget,
+        query=Query[Widget]().where(Widget.category == "bulk"),
+        patch=Patch[Widget]({"category": "bulk-updated"}),
+    )
+    assert updated == 2
+    assert (
+        store.sync.count(
+            Widget,
+            query=Query[Widget]().where(Widget.category == "bulk-updated"),
+        )
+        == 2
+    )
+
+    deleted = store.sync.bulk_delete(
+        Widget,
+        query=Query[Widget]().where(Widget.category == "bulk-updated"),
+    )
+    assert deleted == 2
+    assert store.sync.count(Widget, query=Query[Widget]()) == 1
+
+
 def test_sync_unit_of_work_commit_and_rollback(store):
     with store.sync.unit_of_work() as uow:
         assert uow.session is not None

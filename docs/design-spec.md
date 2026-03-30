@@ -22,7 +22,7 @@
 ## Non-goals
 
 - 不替代 SQLAlchemy 的映射和表达式系统
-- 不继续保留 `QuerySpec`、内联 filter 参数或默认 store 兼容层
+- 不继续保留旧查询对象、内联 filter 参数或默认 store 兼容层
 - 不把事务、查询、模型绑定、副作用初始化混成一个大 facade
 - 不在 SDK 内重复做业务数据校验
 
@@ -174,7 +174,9 @@ flowchart TB
 - `select_rows(model, *, projection)` -> `list[TRow]`
 - `select_scalars(statement)` -> `list[TScalar]`
 - `update(model, *, query, patch)` -> `int`
+- `bulk_update(model, *, query, patch)` -> `int`
 - `delete(model, *, query)` -> `int`
+- `bulk_delete(model, *, query)` -> `int`
 
 ### TypedStoreModel
 
@@ -199,11 +201,17 @@ flowchart TB
 
 当前明确移除：
 
-- `QuerySpec`
+- 旧查询对象
 - 内联 filter public method signatures
 - 默认 store helpers
-- `store.of()` 和旧 `model_store.py`
+- 旧模型快捷入口和旧 `model_store.py`
 - `TypedStore` 直接 CRUD delegate
+
+## v1.0 Stable Contract
+
+- `TypedStore` 的稳定 public surface 以 `typed_store.__all__` 和 `docs/api-surface.md` 为准
+- 不在文档里承诺内部 SQLAlchemy statement 构造细节
+- bulk mutation 与 object mutation 为并列但不同语义的正式 API
 
 ## Validation
 

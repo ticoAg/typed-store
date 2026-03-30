@@ -9,6 +9,8 @@ from typing import Any
 from sqlalchemy import ColumnExpressionArgument, Select, select
 from sqlalchemy.orm.interfaces import ORMOption
 
+from typed_store.errors import BulkQueryShapeError
+
 type FilterClause = ColumnExpressionArgument[bool]
 type OrderClause = ColumnExpressionArgument[object]
 type ProjectionClause = ColumnExpressionArgument[object]
@@ -37,6 +39,24 @@ class Query[TModel]:
 
     def with_options(self, *options: LoaderOption) -> Query[TModel]:
         return replace(self, options=self.options + tuple(options))
+
+    def assert_bulk_compatible(self) -> None:
+        invalid_parts: list[str] = []
+        if self.order_by:
+            invalid_parts.append("order_by")
+        if self.limit is not None:
+            invalid_parts.append("limit")
+        if self.offset is not None:
+            invalid_parts.append("offset")
+        if self.options:
+            invalid_parts.append("options")
+        if invalid_parts:
+            joined = ", ".join(invalid_parts)
+            message = (
+                "Bulk mutation only supports filter-only Query objects; "
+                f"got unsupported fields: {joined}."
+            )
+            raise BulkQueryShapeError(message)
 
     def build_select(self, model: type[TModel]) -> Select[Any]:
         stmt = select(model)

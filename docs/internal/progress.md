@@ -4,7 +4,7 @@
 - Owner: mixed
 - Spec: docs/design-spec.md
 - Code SSOT: `typed_store/`, `tests/`, `examples/`, `pyproject.toml`
-- Last Updated: 2026-03-29
+- Last Updated: 2026-03-30
 
 ## Goal
 
@@ -13,9 +13,9 @@
 
 ## Current State
 
-- `v0.2` 的 bind-first API 已落地并合并到主线
-- `v0.3` 正在收口 capability protocols 和 request objects
-- `QuerySpec`、内联 filter public surface、`store.of()`、默认 store helpers 已移除
+- `v1.0` public API freeze 与 release-ready 收口正在进行
+- bulk mutation 已作为一等 public capability 进入当前实现
+- 旧查询对象、内联 filter public surface、旧模型快捷入口、默认 store helpers 已移除
 - 当前 public 心智模型是 `SyncTypedStore` / `AsyncTypedStore` + `Model.bind(store)`
 
 ## Done
@@ -28,7 +28,7 @@
 - 实现 `TypedStore` composition root
 - 实现 `TypedStoreModel.bind(store)` 与 `bound_model.py`
 - 增加显式生命周期 API：`close()` / `dispose()` / `aclose()`
-- 移除默认 store helpers、`TypedStore` sync delegate 与 `store.of()`
+- 移除默认 store helpers、`TypedStore` sync delegate 与旧模型快捷入口
 - 实现 `typed_store/protocols.py`
 - 实现 `typed_store/specs.py`
 - 删除 `typed_store/query_spec.py`
@@ -37,13 +37,13 @@
 - 重写主路径测试、错误边界测试、smoke tests、protocol tests
 - 重写 README 和 examples 到 bind-first + request-object 心智模型
 - 配置并验证 `ruff` / `ty` / `pytest` / `uv build` 工具链
+- 新增 bulk mutation contract 与 sync / async / bound model 主路径测试
 
 ## Next
 
-- 完成 `v0.3` 全量验证并合并
-- 评估 `update()` / `delete()` 的 SQL 级 bulk 语义是否需要进入下一阶段
-- 补更完整的外部集成文档，例如 FastAPI / repository / transaction 场景
-- 配置并验证仓库侧 Trusted Publisher（PyPI / TestPyPI）
+- 收口 `v1.0` 稳定导出面
+- 对齐 `py.typed`、包元数据与 release workflow
+- 增加 bulk onboarding 示例并完成全量发布前验证
 
 ## Evidence
 
@@ -73,6 +73,5 @@
 
 ## Risks / Blockers
 
-- `update()` / `delete()` 仍然是 ORM-object mutation/remove 语义，不是 SQL bulk mutation
 - `ProjectionQuery[TRow]` 的返回类型主要依赖调用方声明的投影形状与静态类型约束
 - release workflow 依赖 PyPI Trusted Publisher 和 GitHub environment 预配置；未配置前无法真正完成发布

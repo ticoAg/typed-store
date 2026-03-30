@@ -89,8 +89,33 @@ class PatchableStoreProtocol[TModel](Protocol):
 
 
 @runtime_checkable
+class BulkPatchableStoreProtocol[TModel](Protocol):
+    def bulk_update(
+        self,
+        model: type[TModel],
+        *,
+        query: Query[TModel],
+        patch: Patch[TModel],
+        session: Session | None = None,
+        commit: bool = True,
+    ) -> int: ...
+
+
+@runtime_checkable
 class DeletableStoreProtocol[TModel](Protocol):
     def delete(
+        self,
+        model: type[TModel],
+        *,
+        query: Query[TModel],
+        session: Session | None = None,
+        commit: bool = True,
+    ) -> int: ...
+
+
+@runtime_checkable
+class BulkDeletableStoreProtocol[TModel](Protocol):
+    def bulk_delete(
         self,
         model: type[TModel],
         *,
@@ -124,7 +149,9 @@ class SyncModelBoundStoreProtocol[TModel](
     ReadableStoreProtocol[TModel],
     WritableStoreProtocol[TModel],
     PatchableStoreProtocol[TModel],
+    BulkPatchableStoreProtocol[TModel],
     DeletableStoreProtocol[TModel],
+    BulkDeletableStoreProtocol[TModel],
     Protocol,
 ):
     """Composite sync capability protocol used by bound model views."""
@@ -206,8 +233,33 @@ class AsyncPatchableStoreProtocol[TModel](Protocol):
 
 
 @runtime_checkable
+class AsyncBulkPatchableStoreProtocol[TModel](Protocol):
+    async def bulk_update(
+        self,
+        model: type[TModel],
+        *,
+        query: Query[TModel],
+        patch: Patch[TModel],
+        session: AsyncSession | None = None,
+        commit: bool = True,
+    ) -> int: ...
+
+
+@runtime_checkable
 class AsyncDeletableStoreProtocol[TModel](Protocol):
     async def delete(
+        self,
+        model: type[TModel],
+        *,
+        query: Query[TModel],
+        session: AsyncSession | None = None,
+        commit: bool = True,
+    ) -> int: ...
+
+
+@runtime_checkable
+class AsyncBulkDeletableStoreProtocol[TModel](Protocol):
+    async def bulk_delete(
         self,
         model: type[TModel],
         *,
@@ -241,7 +293,9 @@ class AsyncModelBoundStoreProtocol[TModel](
     AsyncReadableStoreProtocol[TModel],
     AsyncWritableStoreProtocol[TModel],
     AsyncPatchableStoreProtocol[TModel],
+    AsyncBulkPatchableStoreProtocol[TModel],
     AsyncDeletableStoreProtocol[TModel],
+    AsyncBulkDeletableStoreProtocol[TModel],
     Protocol,
 ):
     """Composite async capability protocol used by bound model views."""

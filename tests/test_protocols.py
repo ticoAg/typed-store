@@ -3,10 +3,14 @@ from __future__ import annotations
 from tests.conftest import Widget
 from typed_store import PageRequest, Patch, Query
 from typed_store.protocols import (
+    AsyncBulkDeletableStoreProtocol,
+    AsyncBulkPatchableStoreProtocol,
     AsyncDeletableStoreProtocol,
     AsyncPatchableStoreProtocol,
     AsyncReadableStoreProtocol,
     AsyncWritableStoreProtocol,
+    BulkDeletableStoreProtocol,
+    BulkPatchableStoreProtocol,
     DeletableStoreProtocol,
     PatchableStoreProtocol,
     ReadableStoreProtocol,
@@ -26,6 +30,16 @@ def test_async_store_implements_runtime_protocols(store):
     assert isinstance(store.async_, AsyncWritableStoreProtocol)
     assert isinstance(store.async_, AsyncPatchableStoreProtocol)
     assert isinstance(store.async_, AsyncDeletableStoreProtocol)
+
+
+def test_sync_store_implements_bulk_runtime_protocols(store):
+    assert isinstance(store.sync, BulkPatchableStoreProtocol)
+    assert isinstance(store.sync, BulkDeletableStoreProtocol)
+
+
+def test_async_store_implements_bulk_runtime_protocols(store):
+    assert isinstance(store.async_, AsyncBulkPatchableStoreProtocol)
+    assert isinstance(store.async_, AsyncBulkDeletableStoreProtocol)
 
 
 def test_sync_store_uses_query_page_and_patch_objects(store):
