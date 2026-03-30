@@ -81,10 +81,31 @@ class SyncBoundModelView[TModel]:
             self._model, query=query, patch=patch, session=session, commit=commit
         )
 
+    def bulk_update(
+        self,
+        *,
+        query: Query[TModel],
+        patch: Patch[TModel],
+        session: Session | None = None,
+        commit: bool = True,
+    ) -> int:
+        return self._store.bulk_update(
+            self._model,
+            query=query,
+            patch=patch,
+            session=session,
+            commit=commit,
+        )
+
     def delete(
         self, *, query: Query[TModel], session: Session | None = None, commit: bool = True
     ) -> int:
         return self._store.delete(self._model, query=query, session=session, commit=commit)
+
+    def bulk_delete(
+        self, *, query: Query[TModel], session: Session | None = None, commit: bool = True
+    ) -> int:
+        return self._store.bulk_delete(self._model, query=query, session=session, commit=commit)
 
 
 class AsyncBoundModelView[TModel]:
@@ -166,7 +187,33 @@ class AsyncBoundModelView[TModel]:
             self._model, query=query, patch=patch, session=session, commit=commit
         )
 
+    async def bulk_update(
+        self,
+        *,
+        query: Query[TModel],
+        patch: Patch[TModel],
+        session: AsyncSession | None = None,
+        commit: bool = True,
+    ) -> int:
+        return await self._store.bulk_update(
+            self._model,
+            query=query,
+            patch=patch,
+            session=session,
+            commit=commit,
+        )
+
     async def delete(
         self, *, query: Query[TModel], session: AsyncSession | None = None, commit: bool = True
     ) -> int:
         return await self._store.delete(self._model, query=query, session=session, commit=commit)
+
+    async def bulk_delete(
+        self, *, query: Query[TModel], session: AsyncSession | None = None, commit: bool = True
+    ) -> int:
+        return await self._store.bulk_delete(
+            self._model,
+            query=query,
+            session=session,
+            commit=commit,
+        )

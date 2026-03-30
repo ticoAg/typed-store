@@ -4,6 +4,15 @@ on:
   release:
     types:
       - published
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "Target package index"
+        required: true
+        type: choice
+        options:
+          - testpypi
+          - pypi
 
 permissions:
   contents: read
@@ -40,6 +49,12 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+      - name: Build distributions
+        run: uv build
+
+      - name: Twine check
+        run: uv run --with twine twine check dist/*
+
   build-distributions:
     runs-on: ubuntu-latest
     needs: release-checks
@@ -66,9 +81,31 @@ jobs:
           name: release-dists
           path: dist/
 
+  publish-to-testpypi:
+    runs-on: ubuntu-latest
+    needs: build-distributions
+    if: github.event_name == 'workflow_dispatch' && inputs.repository == 'testpypi'
+    permissions:
+      id-token: write
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/typed-store/
+    steps:
+      - name: Retrieve distributions
+        uses: actions/download-artifact@v5
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: Publish distributions to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
   publish-to-pypi:
     runs-on: ubuntu-latest
     needs: build-distributions
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.repository == 'pypi')
     permissions:
       id-token: write
     environment:

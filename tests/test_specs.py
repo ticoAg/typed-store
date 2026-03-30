@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from typing import cast
+
+import pytest
+from sqlalchemy.orm.interfaces import ORMOption
+
 from tests.conftest import Widget
+from typed_store.errors import BulkQueryShapeError
 from typed_store.specs import PageRequest, Patch, ProjectionQuery, Query
 
 
@@ -38,3 +44,23 @@ def test_projection_query_tracks_columns_and_filters():
     assert projection.columns == (Widget.id, Widget.name)
     assert len(projection.filters) == 1
     assert len(projection.order_by) == 1
+
+
+def test_query_accepts_filter_only_bulk_shape() -> None:
+    query = Query[Widget]().where(Widget.category == "ops")
+
+    query.assert_bulk_compatible()
+
+
+@pytest.mark.parametrize(
+    ("query_factory", "expected_fragment"),
+    [
+        (lambda: Query[Widget]().order(Widget.id.asc()), "order_by"),
+        (lambda: Query[Widget]().limit_to(10), "limit"),
+        (lambda: Query[Widget]().offset_by(5), "offset"),
+        (lambda: Query[Widget]().with_options(cast(ORMOption, object())), "options"),
+    ],
+)
+def test_query_rejects_unsupported_bulk_shape(query_factory, expected_fragment) -> None:
+    with pytest.raises(BulkQueryShapeError, match=expected_fragment):
+        query_factory().assert_bulk_compatible()

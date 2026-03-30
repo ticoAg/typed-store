@@ -27,3 +27,7 @@ class InvalidStoreBindingError(TypedStoreConfigurationError):
 
 class ProjectionPaginationError(TypedStoreError):
     """Raised when pagination is requested for a column projection query."""
+
+
+class BulkQueryShapeError(TypedStoreError):
+    """Raised when a Query contains fields invalid for SQL bulk mutation."""

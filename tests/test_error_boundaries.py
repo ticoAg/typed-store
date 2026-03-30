@@ -6,11 +6,24 @@ import pytest
 
 import typed_store
 from tests.conftest import Widget
-from typed_store import AsyncTypedStore, ProjectionQuery, Query, SessionProvider, SyncTypedStore
+from typed_store import (
+    AsyncTypedStore,
+    BulkQueryShapeError,
+    ProjectionQuery,
+    Query,
+    SessionProvider,
+    SyncTypedStore,
+)
 from typed_store.errors import (
     InvalidStoreBindingError,
     MissingAsyncSessionFactoryError,
     MissingSyncSessionFactoryError,
+)
+
+DEFAULT_STORE_HELPERS = (
+    "set_default_" + "store",
+    "get_default_" + "store",
+    "clear_default_" + "store",
 )
 
 
@@ -49,9 +62,12 @@ def test_model_no_longer_exposes_implicit_store_methods():
 
 
 def test_package_no_longer_exports_default_store_helpers():
-    assert not hasattr(typed_store, "set_default_store")
-    assert not hasattr(typed_store, "get_default_store")
-    assert not hasattr(typed_store, "clear_default_store")
+    for name in DEFAULT_STORE_HELPERS:
+        assert not hasattr(typed_store, name)
+
+
+def test_bulk_shape_error_is_exported() -> None:
+    assert hasattr(typed_store, "BulkQueryShapeError")
 
 
 def test_select_rows_requires_projection_keyword(store):
@@ -63,3 +79,12 @@ def test_select_rows_requires_projection_keyword(store):
 async def test_async_select_rows_requires_projection_keyword(store):
     with pytest.raises(TypeError):
         await store.async_.select_rows(Widget, ProjectionQuery[tuple[int]](Widget.id))
+
+
+def test_bulk_update_rejects_non_filter_query(store):
+    with pytest.raises(BulkQueryShapeError, match="order_by"):
+        store.sync.bulk_update(
+            Widget,
+            query=Query[Widget]().order(Widget.id.asc()),
+            patch=typed_store.Patch[Widget]({"category": "bad"}),
+        )

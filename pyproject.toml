@@ -1,6 +1,6 @@
 [project]
 name = "typed-store"
-version = "0.1.0"
+version = "1.0.0"
 description = "Type-first data access SDK built on top of SQLAlchemy"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -10,7 +10,7 @@ authors = [
 ]
 keywords = ["sqlalchemy", "orm", "data-access", "typed", "repository"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",

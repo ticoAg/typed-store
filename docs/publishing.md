@@ -11,8 +11,9 @@
 
 当前发布策略：
 
-- `push` tag `v*`：自动发布到 PyPI
-- `workflow_dispatch`：手动选择发布到 `testpypi` 或 `pypi`
+- `release.published`：默认发布到 PyPI
+- `workflow_dispatch` + `repository=testpypi`：手动发布到 TestPyPI
+- `workflow_dispatch` + `repository=pypi`：手动发布到 PyPI
 
 ## 2. Before remote publishing
 

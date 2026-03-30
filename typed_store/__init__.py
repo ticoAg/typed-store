@@ -10,6 +10,7 @@ from typed_store.engine import (
     create_sync_engine,
 )
 from typed_store.errors import (
+    BulkQueryShapeError,
     MissingAsyncSessionFactoryError,
     MissingSyncSessionFactoryError,
     TypedStoreConfigurationError,
@@ -17,6 +18,8 @@ from typed_store.errors import (
 )
 from typed_store.model import TypedStoreModel
 from typed_store.protocols import (
+    AsyncBulkDeletableStoreProtocol,
+    AsyncBulkPatchableStoreProtocol,
     AsyncDeletableStoreProtocol,
     AsyncModelBoundStoreProtocol,
     AsyncPatchableStoreProtocol,
@@ -24,6 +27,8 @@ from typed_store.protocols import (
     AsyncStatementExecutorProtocol,
     AsyncTransactionalStoreProtocol,
     AsyncWritableStoreProtocol,
+    BulkDeletableStoreProtocol,
+    BulkPatchableStoreProtocol,
     DeletableStoreProtocol,
     PatchableStoreProtocol,
     ReadableStoreProtocol,
@@ -41,6 +46,8 @@ from typed_store.uow import AsyncUnitOfWork, UnitOfWork
 
 __all__ = [
     "AsyncBoundModelView",
+    "AsyncBulkDeletableStoreProtocol",
+    "AsyncBulkPatchableStoreProtocol",
     "AsyncDeletableStoreProtocol",
     "AsyncModelBoundStoreProtocol",
     "AsyncPatchableStoreProtocol",
@@ -50,6 +57,9 @@ __all__ = [
     "AsyncTransactionalStoreProtocol",
     "AsyncUnitOfWork",
     "AsyncWritableStoreProtocol",
+    "BulkDeletableStoreProtocol",
+    "BulkPatchableStoreProtocol",
+    "BulkQueryShapeError",
     "EngineBundle",
     "EngineConfig",
     "DeletableStoreProtocol",

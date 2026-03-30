@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, cast
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
+from sqlalchemy import update as sa_update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.sql.expression import Executable
 
@@ -266,6 +269,32 @@ class AsyncTypedStore[TModel](
                 await managed_session.commit()
             return len(items)
 
+    async def bulk_update(
+        self,
+        model: type[TModel],
+        *,
+        query: Query[TModel],
+        patch: Patch[TModel],
+        session: AsyncSession | None = None,
+        commit: bool = True,
+    ) -> int:
+        """Update matching rows with an async SQL bulk statement."""
+        query.assert_bulk_compatible()
+        stmt = sa_update(model).values(**dict(patch.values))
+        if query.filters:
+            stmt = stmt.where(*query.filters)
+        if session is not None:
+            result = await session.execute(stmt)
+            if commit:
+                await session.commit()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
+
+        async with self.provider.get_async_session() as managed_session:
+            result = await managed_session.execute(stmt)
+            if commit:
+                await managed_session.commit()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
+
     async def delete(
         self,
         model: type[TModel],
@@ -290,3 +319,28 @@ class AsyncTypedStore[TModel](
             if commit:
                 await managed_session.commit()
             return len(items)
+
+    async def bulk_delete(
+        self,
+        model: type[TModel],
+        *,
+        query: Query[TModel],
+        session: AsyncSession | None = None,
+        commit: bool = True,
+    ) -> int:
+        """Delete matching rows with an async SQL bulk statement."""
+        query.assert_bulk_compatible()
+        stmt = sa_delete(model)
+        if query.filters:
+            stmt = stmt.where(*query.filters)
+        if session is not None:
+            result = await session.execute(stmt)
+            if commit:
+                await session.commit()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
+
+        async with self.provider.get_async_session() as managed_session:
+            result = await managed_session.execute(stmt)
+            if commit:
+                await managed_session.commit()
+            return int(cast(CursorResult[Any], result).rowcount or 0)
